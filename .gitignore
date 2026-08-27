@@ -1,0 +1,76 @@
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+/.idea/
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+
+# Secrets and local environment
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+!**/.env.template
+**/.dev.vars
+**/.dev.vars.*
+!**/.dev.vars.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.tfrc.json
+
+# Terraform runtime artifacts that a workflow fixture may produce locally
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Bun artifacts; bun.lock must stay tracked
+**/node_modules/
+/.bun/
+*.tsbuildinfo
+
+# Downloaded CLI used by local integration checks; never committed
+/.rootform-cli/
+
+# Private product material
+/prd.md
+/docs/internal/
+/specs/private/
+**/*.private.md
+/PROGRESS.local.md
+/ROADMAP.local.md
+
+# Private AI configuration and state. Shared controls stay tracked.
+/CLAUDE.local.md
+/.ai-private/
+/.codex/*
+!/.codex/hooks.json
+/.codex-log/
+/.agents/private/
+/.agents/scratch/
+/.agents/memory/
+/.claude/settings.local.json
+/.claude/agents/
+/.claude/plans/
+/.claude/tasks/
+/.claude/worktrees/
+/.claude/debug/
+/.claude/agent-memory/
+/.cursor/
+/.cursorrules
+/.windsurf/
+/.windsurfrules
+/.mcp.json
+/.mcp.local.json
+
+# Local reports and scratch space
+/.cache/
+/.scratch/
+/tmp/
+/reports/local/

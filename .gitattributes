@@ -1,0 +1,21 @@
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.py text eol=lf
+*.go text eol=lf
+*.ts text eol=lf
+*.svelte text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.bat text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary

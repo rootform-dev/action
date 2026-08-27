@@ -1,0 +1,4 @@
+interface:
+  display_name: "Action Technical Spike"
+  short_description: "Resolve risky Rootform Action decisions with evidence"
+  default_prompt: "Use $technical-spike to test this Rootform Action assumption before production work."

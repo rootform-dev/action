@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify Action"
+  short_description: "Run evidence-based Rootform Action validation gates"
+  default_prompt: "Use $verify to prove this Rootform Action change meets its acceptance gates."

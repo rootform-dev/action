@@ -1,0 +1,4 @@
+interface:
+  display_name: "New Action Spec"
+  short_description: "Create a reviewable Rootform Action change specification"
+  default_prompt: "Use $new-spec to draft a Rootform Action change spec for owner review."

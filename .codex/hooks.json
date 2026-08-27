@@ -1,0 +1,43 @@
+{
+  "description": "Shared Rootform guardrails. Review with /hooks before trusting.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch|Read|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$(git rev-parse --show-toplevel)/.claude/hooks/pre-tool-use.ts\"",
+            "statusMessage": "Checking Rootform policy",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$(git rev-parse --show-toplevel)/.claude/hooks/post-tool-use.ts\"",
+            "statusMessage": "Checking touched files",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$(git rev-parse --show-toplevel)/.claude/hooks/done-when.ts\"",
+            "statusMessage": "Checking done-when gates",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

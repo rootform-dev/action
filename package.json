@@ -1,0 +1,28 @@
+{
+  "name": "@rootform/action",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rootform GitHub Actions integration engineering controls",
+  "packageManager": "bun@1.3.14",
+  "engines": {
+    "bun": "1.3.14"
+  },
+  "scripts": {
+    "check": "bun run check:foundation && bun run typecheck && bun run check:format && bun run test:tooling",
+    "check:fast": "bun run check",
+    "check:format": "biome check .",
+    "check:foundation": "bun scripts/validate-foundation.ts",
+    "format": "biome check --write .",
+    "hooks:install": "bun scripts/setup-dev.ts",
+    "test": "bun test --pass-with-no-tests",
+    "test:tooling": "bun test scripts",
+    "typecheck": "tsc --noEmit",
+    "verify": "bun scripts/verify.ts --full"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.8",
+    "@types/bun": "1.3.14",
+    "typescript": "7.0.2"
+  }
+}
