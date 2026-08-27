@@ -1,0 +1,43 @@
+name: Feature or change proposal
+description: Propose a change to what the action does or how it is configured.
+labels:
+  - proposal
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Action behavior requires an owner-accepted spec under `specs/` before implementation. This form starts that conversation; it does not accept code by itself. A behavior the action cannot express because the CLI does not expose it is a [CLI feature request](https://github.com/rootform-dev/rootform/issues/new/choose).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: The concrete workflow situation that is not handled today. Describe evidence, not a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Proposed outcome
+      description: The observable behavior you expect, stated so it can be verified in a workflow run.
+    validations:
+      required: true
+  - type: textarea
+    id: surface
+    attributes:
+      label: Surface impact
+      description: Effect on inputs, outputs, required permissions, published logs, or the pinned CLI version. State "none" when there is none.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before submitting
+      options:
+        - label: This proposal contains no real Terraform material, credential, token, or customer data.
+          required: true
+        - label: This asks the action to orchestrate the CLI, not to reimplement a Rootform semantic.
+          required: true

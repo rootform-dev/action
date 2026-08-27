@@ -50,3 +50,7 @@ what other people's workflows execute; correct a mistake with a new release.
 ## Public contribution gate
 
 External contributions will open only after licensing, governance, and branch protection are finalized. Until then, use GitHub issues for proposals and do not assume submitted code can be accepted.
+
+`CODE_OF_CONDUCT.md` applies to every interaction in this repository, including
+the ones that happen before it opens. The steps that remain between here and a
+public repository are listed in `docs/engineering/go-public.md`.

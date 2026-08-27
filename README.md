@@ -59,7 +59,8 @@ is corrected by a new release, never by moving a published tag. `1.0.0` is a
 deliberate owner decision and requires superseding `docs/adr/001-release-automation.md`.
 
 Manual steps that remain with the owner: making the repository public, enabling
-branch protection on `dev` and `main`, and promoting the action to `1.0.0`.
+branch protection on `dev` and `main`, and promoting the action to `1.0.0`. The
+ordered checklist is `docs/engineering/go-public.md`.
 
 ## Relationship to the product
 

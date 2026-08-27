@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/rootform-dev/action/security/advisories/new
+    about: Report privately through GitHub Security Advisories. Never attach real Terraform state, plans, credentials, tokens, or account identifiers.
+  - name: Report Rootform CLI behavior
+    url: https://github.com/rootform-dev/rootform/issues/new/choose
+    about: Parsing, diffing, policy evaluation, coverage, and exit codes belong to the CLI, not to this action.
+  - name: Read the engineering contract
+    url: https://github.com/rootform-dev/action/blob/dev/AGENTS.md
+    about: Change gate, action surface rules, and quality gates every contribution must satisfy.

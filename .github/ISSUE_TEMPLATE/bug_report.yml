@@ -1,0 +1,59 @@
+name: Bug report
+description: Report incorrect, unclear, or unsafe behavior of the Rootform action.
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never attach real Terraform state, plan files, credentials, tokens, private keys, customer configuration, or cloud account identifiers. Redact workflow logs before pasting them. For an exploitable finding, use [private reporting](https://github.com/rootform-dev/action/security/advisories/new) rather than this form.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened
+      description: Observed behavior of the action and why it is wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Minimal workflow
+      description: Smallest redacted workflow step that reproduces the behavior.
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted job output
+      description: Relevant lines from the failing step, with tokens and identifiers removed.
+      render: shell
+  - type: input
+    id: revision
+    attributes:
+      label: Action reference
+      description: The exact tag or commit SHA the workflow pinned.
+    validations:
+      required: true
+  - type: input
+    id: runner
+    attributes:
+      label: Runner
+      placeholder: ubuntu-24.04, or a self-hosted runner and its OS and architecture
+    validations:
+      required: true
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before submitting
+      options:
+        - label: This report contains no real state, plan, credential, token, account identifier, or customer configuration.
+          required: true
+        - label: This is action behavior, not Rootform CLI semantics such as parsing, diffing, policy evaluation, or coverage.
+          required: true
