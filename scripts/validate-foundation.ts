@@ -7,6 +7,11 @@ import { isForbiddenPackageManagerLock, isPrivateTrackedPath, isSecretPath } fro
 
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u;
 const PRERELEASE = /(?:alpha|beta|canary|dev|next|nightly|preview|rc)/iu;
+/* semantic-release expands this template itself; it is a literal contract with
+   every consumer that pins a tag, not a JavaScript template string. */
+// biome-ignore lint/suspicious/noTemplateCurlyInString: semantic-release tag template
+export const RELEASE_TAG_FORMAT = "v${version}";
+export const RELEASE_BRANCH = "main";
 
 export const expectedRootScripts = {
   check:
@@ -168,6 +173,71 @@ export async function validateActionManifests(root: string): Promise<string[]> {
   return errors;
 }
 
+/* Releases are what consumers pin to. Automation may create a tag and its
+   release from `main`; it may never publish a package, rewrite version fields,
+   or push commits back into a protected branch. */
+export async function validateReleaseConfiguration(root: string): Promise<string[]> {
+  const errors: string[] = [];
+  const configPath = join(root, ".releaserc.json");
+  if (!existsSync(configPath)) return ["missing release configuration: .releaserc.json"];
+
+  let parsed: unknown;
+  try {
+    parsed = await Bun.file(configPath).json();
+  } catch (error) {
+    return [`invalid .releaserc.json: ${error instanceof Error ? error.message : String(error)}`];
+  }
+  if (!isPlainRecord(parsed)) return [".releaserc.json must be a JSON object"];
+
+  const branches = parsed.branches;
+  if (!Array.isArray(branches) || branches.length !== 1 || branches[0] !== RELEASE_BRANCH)
+    errors.push(`release branches must be exactly ["${RELEASE_BRANCH}"]`);
+  if (parsed.tagFormat !== RELEASE_TAG_FORMAT)
+    errors.push(`release tagFormat must be ${RELEASE_TAG_FORMAT}, got ${String(parsed.tagFormat)}`);
+
+  const plugins = parsed.plugins;
+  if (!Array.isArray(plugins)) {
+    errors.push("release plugins must be a list");
+    return errors;
+  }
+
+  const names = plugins.map((plugin) =>
+    typeof plugin === "string" ? plugin : Array.isArray(plugin) ? String(plugin[0]) : "",
+  );
+  const forbidden = ["@semantic-release/npm", "@semantic-release/git", "@semantic-release/exec"];
+  for (const name of names) {
+    if (forbidden.includes(name))
+      errors.push(`release plugin may not publish or rewrite repository state: ${name}`);
+  }
+  for (const required of ["@semantic-release/commit-analyzer", "@semantic-release/github"]) {
+    if (!names.includes(required)) errors.push(`release plugin is missing: ${required}`);
+  }
+
+  /* Pre-1.0 stays pre-1.0: a breaking change must raise the minor, because the
+     default major bump would publish a v1 nobody accepted. */
+  const analyzer = plugins.find(
+    (plugin) => Array.isArray(plugin) && plugin[0] === "@semantic-release/commit-analyzer",
+  );
+  const analyzerOptions = Array.isArray(analyzer) ? analyzer[1] : undefined;
+  const releaseRules = isPlainRecord(analyzerOptions) ? analyzerOptions.releaseRules : undefined;
+  const breakingRule = Array.isArray(releaseRules)
+    ? releaseRules.find((rule) => isPlainRecord(rule) && rule.breaking === true)
+    : undefined;
+  if (!isPlainRecord(breakingRule) || breakingRule.release !== "minor")
+    errors.push("release rules must map a breaking change to a minor bump while the action is 0.x");
+
+  const manifestPath = join(root, "package.json");
+  if (existsSync(manifestPath)) {
+    const manifest: unknown = await Bun.file(manifestPath).json();
+    const repository = isPlainRecord(manifest) ? manifest.repository : undefined;
+    const url = isPlainRecord(repository) ? repository.url : repository;
+    if (url !== "git+https://github.com/rootform-dev/action.git")
+      errors.push(`root repository.url must name rootform-dev/action, got ${String(url)}`);
+  }
+
+  return errors;
+}
+
 async function main(): Promise<void> {
   const root = repositoryRoot();
   const errors: string[] = [];
@@ -190,7 +260,9 @@ async function main(): Promise<void> {
     ".github/dependabot.yml",
     ".github/pull_request_template.md",
     ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
     ".gitleaks.toml",
+    ".releaserc.json",
     "AGENTS.md",
     "CLAUDE.md",
     "CONTRIBUTING.md",
@@ -198,6 +270,7 @@ async function main(): Promise<void> {
     "SECURITY.md",
     "bun.lock",
     "docs/constitution.md",
+    "docs/adr/001-release-automation.md",
     "docs/engineering/public-private-boundary.md",
     "docs/engineering/quality-gates.md",
     "docs/engineering/toolchain-policy.md",
@@ -270,6 +343,7 @@ async function main(): Promise<void> {
 
   errors.push(...(await validateRootManifest(root)));
   errors.push(...(await validateActionManifests(root)));
+  errors.push(...(await validateReleaseConfiguration(root)));
 
   for (const path of candidates.filter((path) => path.endsWith(".json"))) {
     try {

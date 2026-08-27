@@ -26,6 +26,10 @@ describe("bundle gate commands", () => {
         join(bin, "gitleaks"),
         '#!/bin/sh\nif [ "$1" = "version" ]; then printf \'8.30.1\\n\'; fi\nexit 0\n',
       );
+      executable(
+        join(bin, "actionlint"),
+        '#!/bin/sh\nif [ "$1" = "-version" ]; then printf \'1.7.12\\n\'; fi\nexit 0\n',
+      );
       mkdirSync(join(scratch, "src"), { recursive: true });
       writeFileSync(join(scratch, "src", "action.ts"), "export {};\n");
       writeFileSync(join(scratch, "package.json"), JSON.stringify({ scripts: { build: "true" } }));
@@ -75,6 +79,10 @@ describe("bundle gate commands", () => {
       executable(
         join(bin, "gitleaks"),
         '#!/bin/sh\nif [ "$1" = "version" ]; then printf \'8.30.1\\n\'; fi\nexit 0\n',
+      );
+      executable(
+        join(bin, "actionlint"),
+        '#!/bin/sh\nif [ "$1" = "-version" ]; then printf \'1.7.12\\n\'; fi\nexit 0\n',
       );
       mkdirSync(join(scratch, "src"), { recursive: true });
       mkdirSync(join(scratch, "dist"), { recursive: true });

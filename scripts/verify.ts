@@ -88,6 +88,20 @@ if (gitleaksVersion.exitCode !== 0 || gitleaksVersion.stdout.trim() !== "8.30.1"
   process.exit(1);
 }
 
+if (!Bun.which("actionlint")) {
+  console.error("actionlint 1.7.12 is required for full verification");
+  process.exit(1);
+}
+
+const actionlintVersion = run(["actionlint", "-version"], root);
+const actionlintReported = actionlintVersion.stdout.split("\n", 1)[0]?.trim() ?? "";
+if (actionlintVersion.exitCode !== 0 || actionlintReported !== "1.7.12") {
+  console.error(`expected actionlint 1.7.12, got ${actionlintReported || "unavailable"}`);
+  process.exit(1);
+}
+
+runGate({ command: ["actionlint", "-no-color", "-oneline"], label: "workflow static analysis" });
+
 const candidatesResult = git(
   ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
   root,

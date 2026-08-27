@@ -10,8 +10,20 @@ Exclude prereleases, nightly builds, abandoned packages, and combinations whose 
 
 `package.json`, `bun.lock`, workflow SHAs, and CI checks are source of truth. The
 current foundation pins Bun 1.3.14, TypeScript 7.0.2, Biome 2.5.8, Bun types
-1.3.14, and Gitleaks 8.30.1. Any runtime dependency an action entrypoint needs
-requires fresh compatibility validation in an accepted spec.
+1.3.14, Gitleaks 8.30.1, and actionlint 1.7.12. Release automation pins
+semantic-release 25.0.9 with `@semantic-release/commit-analyzer` 13.0.1,
+`@semantic-release/release-notes-generator` 14.1.1, `@semantic-release/github`
+12.0.9, and `conventional-changelog-conventionalcommits` 10.4.0. Any runtime
+dependency an action entrypoint needs requires fresh compatibility validation in
+an accepted spec.
+
+semantic-release 25 requires Node `^22.14.0 || >= 24.10.0`, which Bun does not
+satisfy. The release job therefore pins Node 24.20.0 alongside Bun. Bun still
+performs the install; Node only executes the release binary.
+
+External binaries used by a gate are pinned by version and SHA-256, downloaded
+from their upstream release, and verified before use. A tool that cannot be
+verified this way does not enter the gate.
 
 ## Adoption procedure
 
@@ -52,3 +64,7 @@ requires fresh compatibility validation in an accepted spec.
 - Never run two dependency bots against the same ecosystem.
 - Security updates receive priority but still pass all gates. No blind auto-merge.
 - Review stable releases at least weekly during active development and before each release cut.
+- Releases are produced only by `.github/workflows/release.yml` on `main`.
+  Automation never moves a published tag, never publishes to a registry, and
+  never pushes a commit into a protected branch. See
+  `docs/adr/001-release-automation.md`.

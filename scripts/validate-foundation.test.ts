@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   expectedRootScripts,
+  RELEASE_TAG_FORMAT,
   validateActionManifests,
+  validateReleaseConfiguration,
   validateRootManifest,
 } from "./validate-foundation.ts";
 
@@ -37,6 +39,7 @@ function rootManifest(): Record<string, unknown> {
     version: "0.1.0",
     private: true,
     type: "module",
+    repository: { type: "git", url: "git+https://github.com/rootform-dev/action.git" },
     packageManager: `bun@${Bun.version}`,
     engines: { bun: Bun.version },
     scripts: { ...expectedRootScripts },
@@ -201,6 +204,103 @@ describe("foundation validation", () => {
       writeText(join(dir, "action.yml"), "- name: Rootform\n");
       expect((await validateActionManifests(dir)).join("\n")).toContain(
         "action manifest must be a mapping: action.yml",
+      );
+    });
+  });
+
+  describe("release configuration gate", () => {
+    function releaseConfig(): Record<string, unknown> {
+      return {
+        branches: ["main"],
+        tagFormat: RELEASE_TAG_FORMAT,
+        plugins: [
+          [
+            "@semantic-release/commit-analyzer",
+            { preset: "conventionalcommits", releaseRules: [{ breaking: true, release: "minor" }] },
+          ],
+          ["@semantic-release/release-notes-generator", { preset: "conventionalcommits" }],
+          ["@semantic-release/github", { successComment: false }],
+        ],
+      };
+    }
+
+    function releaseSandbox(config: Record<string, unknown> = releaseConfig()): string {
+      const dir = validSandbox();
+      writeJson(join(dir, ".releaserc.json"), config);
+      return dir;
+    }
+
+    test("accepts the accepted release layout", async () => {
+      expect(await validateReleaseConfiguration(releaseSandbox())).toEqual([]);
+    });
+
+    test("rejects a missing release configuration", async () => {
+      expect(await validateReleaseConfiguration(validSandbox())).toEqual([
+        "missing release configuration: .releaserc.json",
+      ]);
+    });
+
+    test("rejects a release branch or tag format the consumers did not agree to", async () => {
+      const joined = (
+        await validateReleaseConfiguration(
+          releaseSandbox({
+            ...releaseConfig(),
+            branches: ["dev", "main"],
+            tagFormat: RELEASE_TAG_FORMAT.slice(1),
+          }),
+        )
+      ).join("\n");
+      expect(joined).toContain('release branches must be exactly ["main"]');
+      expect(joined).toContain(`release tagFormat must be ${RELEASE_TAG_FORMAT}`);
+    });
+
+    test("rejects a plugin that publishes or rewrites repository state", async () => {
+      const config = releaseConfig();
+      config.plugins = [
+        ...(config.plugins as unknown[]),
+        "@semantic-release/npm",
+        ["@semantic-release/git", {}],
+        ["@semantic-release/exec", { publishCmd: "true" }],
+      ];
+      const joined = (await validateReleaseConfiguration(releaseSandbox(config))).join("\n");
+      expect(joined).toContain(
+        "release plugin may not publish or rewrite repository state: @semantic-release/npm",
+      );
+      expect(joined).toContain(
+        "release plugin may not publish or rewrite repository state: @semantic-release/git",
+      );
+      expect(joined).toContain(
+        "release plugin may not publish or rewrite repository state: @semantic-release/exec",
+      );
+    });
+
+    test("rejects a missing analyzer or publisher", async () => {
+      const config = releaseConfig();
+      config.plugins = [["@semantic-release/release-notes-generator", {}]];
+      const joined = (await validateReleaseConfiguration(releaseSandbox(config))).join("\n");
+      expect(joined).toContain("release plugin is missing: @semantic-release/commit-analyzer");
+      expect(joined).toContain("release plugin is missing: @semantic-release/github");
+    });
+
+    test("rejects a breaking change that would publish a major release", async () => {
+      const config = releaseConfig();
+      config.plugins = [
+        ["@semantic-release/commit-analyzer", { preset: "conventionalcommits" }],
+        ["@semantic-release/github", {}],
+      ];
+      expect((await validateReleaseConfiguration(releaseSandbox(config))).join("\n")).toContain(
+        "release rules must map a breaking change to a minor bump while the action is 0.x",
+      );
+    });
+
+    test("rejects a manifest that names another repository", async () => {
+      const dir = releaseSandbox();
+      writeJson(join(dir, "package.json"), {
+        ...rootManifest(),
+        repository: { type: "git", url: "git+https://github.com/example/other.git" },
+      });
+      expect((await validateReleaseConfiguration(dir)).join("\n")).toContain(
+        "root repository.url must name rootform-dev/action",
       );
     });
   });

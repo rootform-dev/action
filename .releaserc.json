@@ -1,0 +1,44 @@
+{
+  "branches": ["main"],
+  "tagFormat": "v${version}",
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [{ "breaking": true, "release": "minor" }]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            { "type": "feat", "section": "Features" },
+            { "type": "fix", "section": "Fixes" },
+            { "type": "perf", "section": "Performance" },
+            { "type": "revert", "section": "Reverts" },
+            { "type": "build", "section": "Build", "hidden": true },
+            { "type": "chore", "hidden": true },
+            { "type": "ci", "hidden": true },
+            { "type": "docs", "hidden": true },
+            { "type": "refactor", "hidden": true },
+            { "type": "style", "hidden": true },
+            { "type": "test", "hidden": true }
+          ]
+        }
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "successComment": false,
+        "failComment": false,
+        "failTitle": false,
+        "labels": false,
+        "releasedLabels": false
+      }
+    ]
+  ]
+}

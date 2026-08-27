@@ -14,6 +14,8 @@ Every durable rule needs an executable control and a testable completion conditi
 | Published entrypoint is runnable | action manifest validation | `bun scripts/validate-foundation.ts` | Each `action.yml` names a non-empty name and description, a pinned Node runtime, and an existing committed bundle. |
 | Agent cannot overwrite governed/generated files | `PreToolUse` blocks `LICENSE`, lockfiles, PRD, secrets, state, plans, build output | policy unit tests | Every deny fixture returns explicit reason; safe fixtures remain allowed. |
 | Published tag or release is not moved by automation | `PreToolUse` blocks `git tag -f`, tag deletion, and `gh release` mutation | policy unit tests | Every consumer pinned to a major tag keeps the code it was reviewed against. |
+| Release is derived from history, not chosen by hand | semantic-release on `main`; release plugins restricted | `bun scripts/validate-foundation.ts` | Release config targets only `main`, keeps `v${version}`, maps a breaking change to a minor bump, and declares no publishing or repository-writing plugin. |
+| Workflow definition is statically valid | actionlint installed from a checksum-verified archive in CI | `actionlint` gate inside `bun run verify` | actionlint 1.7.12 exits `0` over `.github/workflows`. |
 | Destructive or bypass command is not automated | `PreToolUse` blocks destructive Git/filesystem/Terraform and `--no-verify` | policy unit tests | Deny matrix passes for every supported command form. |
 | Touched source uses the pinned formatter | `PostToolUse` invokes installed Biome | Biome check and format-hook tests | Hook never invokes `bunx`; formatter check exits `0`. |
 | Commit and PR history remains reviewable | `commit-msg` hook and PR metadata CI | Conventional Commit validator | Valid fixtures pass; invalid type, casing, length, suffix, and bypass cases fail. |
@@ -33,13 +35,13 @@ bun run check:fast
 
 ### Full gate
 
-Runs the fast gate, the product spec gate, the public working-set secret scan, the full Git history scan, and — once `src/` exists — the bundle rebuild and sync check:
+Runs the fast gate, the product spec gate, workflow static analysis, the public working-set secret scan, the full Git history scan, and — once `src/` exists — the bundle rebuild and sync check:
 
 ```bash
 bun run verify
 ```
 
-Missing required tooling fails closed. A skipped, unavailable, or failing gate must be reported as missing proof.
+Missing required tooling fails closed: the full gate refuses to run without Gitleaks 8.30.1 and actionlint 1.7.12 at their exact pinned versions. A skipped, unavailable, or failing gate must be reported as missing proof.
 
 ## Accepted spec requirement shape
 
