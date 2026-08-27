@@ -27,6 +27,8 @@ This repository is pre-release and private while its foundations stabilize. The 
 - Complete the pull request template with spec, evidence, risks, and privacy review.
 - Do not add automated AI attribution trailers. Human accountability remains with the contributor and reviewer.
 - Do not bypass hooks or weaken gates.
+- Contributions are accepted under the [Apache License 2.0](LICENSE). Submitting a
+  pull request means you have the right to license your contribution under it.
 
 Commit subjects are the release notes. `fix:` and `feat:` reach the published
 changelog verbatim, so write the subject for a reader who does not know the

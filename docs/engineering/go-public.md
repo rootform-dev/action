@@ -4,7 +4,7 @@ This repository is built to be published. Everything automatable is already
 enforced by `bun run verify` and CI; what remains are the settings only a
 repository owner can change, plus the checks that need human judgment.
 
-Do the steps in order. Steps 1 to 3 happen before the repository becomes
+Do the steps in order. Steps 1 and 2 happen before the repository becomes
 visible, because their failure modes are irreversible once history is public.
 
 ## 1. Confirm history is publishable
@@ -20,26 +20,21 @@ release notes, issue titles, and the author names and email addresses in
 `git log`. Deleting a tracked secret does not remove it from history; a leak
 found after publication must be rotated, not deleted.
 
-## 2. Choose and add a license
-
-No `LICENSE` file exists yet, and the agent policy blocks automation from
-writing one. Until a license is committed, published code carries no usage
-rights. Add the license the owner intends, and state it in `README.md`.
-
-## 3. Review the public surface
+## 2. Review the public surface
 
 - `README.md` describes what exists, not what is planned.
 - `SECURITY.md` points at private advisory reporting.
 - `CODE_OF_CONDUCT.md` and the issue templates name this repository.
+- `LICENSE` is the verbatim Apache License 2.0, matching the CLI it orchestrates.
 - No committed behavior depends on an ignored private file.
 
-## 4. Make the repository public
+## 3. Make the repository public
 
 Settings → General → Danger Zone → Change visibility. Branch protection and
 GitHub's free security features stay unavailable on a private repository, so
 this step unblocks the rest.
 
-## 5. Protect `main` and `dev`
+## 4. Protect `main` and `dev`
 
 `main` is what consumers' tags come from; `dev` is what merges into it. Both
 need a ruleset that requires:
@@ -58,13 +53,13 @@ bypass. Verify with:
 gh api repos/rootform-dev/action/rulesets
 ```
 
-## 6. Enable the free security features
+## 5. Enable the free security features
 
 Settings → Code security: secret scanning, push protection, and Dependabot
 alerts and security updates. Push protection is the layer that stops a secret
 before it reaches history, which the local hooks cannot guarantee.
 
-## 7. Reconsider the deferred scanners
+## 6. Reconsider the deferred scanners
 
 `docs/adr/001-release-automation.md` defers CodeQL, Scorecard,
 dependency-review, and zizmor because the repository has no application source

@@ -270,6 +270,7 @@ async function main(): Promise<void> {
     "CLAUDE.md",
     "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
+    "LICENSE",
     "README.md",
     "SECURITY.md",
     "bun.lock",

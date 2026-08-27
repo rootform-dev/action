@@ -1,5 +1,8 @@
 # Rootform Action
 
+[![Quality](https://github.com/rootform-dev/action/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/rootform-dev/action/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 GitHub Actions integration for [Rootform](https://github.com/rootform-dev/rootform),
 the deterministic Terraform architecture compiler.
 
@@ -67,3 +70,8 @@ ordered checklist is `docs/engineering/go-public.md`.
 The Rootform CLI, its semantics, and its exit codes live in
 `rootform-dev/rootform`. A behavior this action cannot express is a CLI feature
 request, not an action feature.
+
+## License
+
+Rootform Action is licensed under the [Apache License 2.0](LICENSE), the same
+license as the Rootform CLI it orchestrates.
