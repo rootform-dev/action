@@ -70,7 +70,7 @@ describe("PreToolUse policy", () => {
   test.each([
     "git reset --hard HEAD",
     "git clean -fd",
-    "git push --force origin develop",
+    "git push --force origin dev",
     "git rebase main",
     "rm -rf build",
     "terraform apply",

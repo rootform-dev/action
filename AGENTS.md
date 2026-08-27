@@ -128,12 +128,12 @@ unavailable, report the exact missing proof; do not substitute confidence.
 
 ## Git workflow
 
-- Branch from `develop` using `type/NNN-short-kebab-slug` for product specs and
+- Branch from `dev` using `type/NNN-short-kebab-slug` for product specs and
   `type/short-kebab-slug` for repository-only work.
-- Open pull requests into `develop`; use squash merge.
+- Open pull requests into `dev`; use squash merge.
 - Use Conventional Commits: `type(scope): imperative summary`.
 - Keep subject at most 100 characters, lower-case, and without trailing period.
-- Do not push directly to `main` or `develop`.
+- Do not push directly to `main` or `dev`.
 - Do not use `--no-verify`, force push, destructive reset, or history rewriting
   unless the owner explicitly authorizes it.
 - Do not add automatic AI attribution or co-author trailers. Describe material

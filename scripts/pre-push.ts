@@ -20,9 +20,9 @@ for (const update of updates) {
   const branch = localRef.slice("refs/heads/".length);
   let base = remoteSha && remoteSha !== ZERO_SHA ? remoteSha : "";
   if (!base) {
-    const mergeBase = git(["merge-base", localSha, "origin/develop"], root);
+    const mergeBase = git(["merge-base", localSha, "origin/dev"], root);
     if (mergeBase.exitCode !== 0) {
-      console.error("Cannot determine develop merge-base for new branch.");
+      console.error("Cannot determine dev merge-base for new branch.");
       process.exit(1);
     }
     base = mergeBase.stdout.trim();

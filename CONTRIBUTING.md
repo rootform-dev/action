@@ -6,7 +6,7 @@ This repository is pre-release and private while its foundations stabilize. The 
 
 1. Read `AGENTS.md`, `docs/constitution.md`, and relevant accepted specs and ADRs.
 2. For product behavior, obtain owner acceptance of a spec before implementation.
-3. Branch from `develop` using `type/short-kebab-slug`.
+3. Branch from `dev` using `type/short-kebab-slug`.
 4. Install exact tooling with `bun install --frozen-lockfile`, then run `bun run hooks:install`.
 
 ## Development
@@ -22,7 +22,7 @@ This repository is pre-release and private while its foundations stabilize. The 
 ## Commits and pull requests
 
 - Use Conventional Commits, for example `feat(installer): verify the published checksum`.
-- Target `develop`; keep pull requests small and squash-mergeable.
+- Target `dev`; keep pull requests small and squash-mergeable.
 - Complete the pull request template with spec, evidence, risks, and privacy review.
 - Do not add automated AI attribution trailers. Human accountability remains with the contributor and reviewer.
 - Do not bypass hooks or weaken gates.
