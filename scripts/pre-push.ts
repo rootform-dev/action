@@ -19,7 +19,10 @@ for (const update of updates) {
 
   const branch = localRef.slice("refs/heads/".length);
   let base = remoteSha && remoteSha !== ZERO_SHA ? remoteSha : "";
-  if (!base) {
+  /* A base scopes the spec gate to what this push adds. Without an integration
+     branch to compare against there is nothing to narrow, so the gate runs
+     over the whole working tree instead of refusing the push. */
+  if (!base && git(["rev-parse", "--verify", "--quiet", "origin/dev"], root).exitCode === 0) {
     const mergeBase = git(["merge-base", localSha, "origin/dev"], root);
     if (mergeBase.exitCode !== 0) {
       console.error("Cannot determine dev merge-base for new branch.");
