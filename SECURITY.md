@@ -1,7 +1,5 @@
 # Security policy
 
-The Rootform Action has no supported public release yet.
-
 Report suspected vulnerabilities privately through [GitHub Security Advisories](https://github.com/rootform-dev/action/security/advisories/new). Do not open a public issue for an exploitable finding.
 
 Never attach real Terraform state, plan files, credentials, tokens, private keys, customer configuration, cloud account identifiers, or unredacted workflow logs. Build the smallest synthetic reproduction instead.

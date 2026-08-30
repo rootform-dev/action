@@ -6,30 +6,22 @@
 GitHub Actions integration for [Rootform](https://github.com/rootform-dev/rootform),
 the deterministic Terraform architecture compiler.
 
-Repository remains private during migration. Action runtime, installer, tests,
-and committed bundles exist, but no public release or moving major tag is part
-of repository split.
-
-## Intended surface
+## Usage
 
 Two entrypoints share one installer:
 
 ```yaml
 # Integrated experience: install Rootform, analyze source, publish results
-- uses: rootform-dev/action@<full-commit-sha>
+- uses: rootform-dev/action@v1
   with:
-    version: 0.1.0-dev.1
+    version: 0.1.0
     path: .
 
 # Installation only, for advanced usage
-- uses: rootform-dev/action/setup@<full-commit-sha>
+- uses: rootform-dev/action/setup@v1
   with:
-    version: 0.1.0-dev.1
+    version: 0.1.0
 ```
-
-During private migration only, pass a secret with read access to distribution
-releases as `github-token`. Public releases use identical installer path with no
-token. Caller repository `GITHUB_TOKEN` cannot read another private repository.
 
 Main entrypoint accepts `source` or `plan` mode. It writes Architecture IR,
 self-contained HTML, policy JSON, SARIF, and CLI Markdown; uploads only four
@@ -76,16 +68,10 @@ no commit is pushed back into a protected branch. Tags are immutable: a mistake
 is corrected by a new release, never by moving a published tag. `1.0.0` is a
 deliberate owner decision and requires superseding `docs/adr/001-release-automation.md`.
 
-Manual steps that remain with the owner: making the repository public, enabling
-branch protection on `dev` and `main`, and promoting the action to `1.0.0`. The
-ordered checklist is `docs/engineering/go-public.md`.
-
 ## Relationship to the product
 
-`rootform-dev/rootform` owns release assets and public contracts.
-`rootform-dev/engine` privately owns CLI implementation and semantics. Action
-consumes documented CLI surface only. Behavior Action cannot express remains
-engine or public-contract change, not duplicated Action logic.
+`rootform-dev/rootform` owns release assets and contracts. Action consumes the
+documented CLI surface only; it does not duplicate Rootform semantics.
 
 ## License
 
