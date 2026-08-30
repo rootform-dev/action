@@ -1,7 +1,5 @@
 # Contributing to the Rootform Action
 
-This repository is pre-release and private while its foundations stabilize. The workflow is designed to remain valid when it becomes public.
-
 ## Before work starts
 
 1. Read `AGENTS.md`, `docs/constitution.md`, and relevant accepted specs and ADRs.
@@ -49,10 +47,4 @@ publishes `1.0.0`; that promotion is an owner decision documented in
 Never create, move, or delete a tag or release by hand. Published references are
 what other people's workflows execute; correct a mistake with a new release.
 
-## Public contribution gate
-
-External contributions will open only after licensing, governance, and branch protection are finalized. Until then, use GitHub issues for proposals and do not assume submitted code can be accepted.
-
-`CODE_OF_CONDUCT.md` applies to every interaction in this repository, including
-the ones that happen before it opens. The steps that remain between here and a
-public repository are listed in `docs/engineering/go-public.md`.
+`CODE_OF_CONDUCT.md` applies to every interaction in this repository.
