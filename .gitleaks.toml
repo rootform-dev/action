@@ -2,3 +2,11 @@ title = "Rootform secret scanning"
 
 [extend]
 useDefault = true
+
+[[allowlists]]
+description = "Official Azure SDK CRC64 WebAssembly and local emulator constants"
+regexTarget = "line"
+regexes = [
+  '''JqIgUgAEHIksECaig''',
+  '''AccountName=devstoreaccount1;AccountKey=[A-Za-z0-9+/=]+;BlobEndpoint=http://127\.0\.0\.1''',
+]

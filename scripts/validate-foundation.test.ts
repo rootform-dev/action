@@ -173,9 +173,7 @@ describe("foundation validation", () => {
         "name: Rootform\ndescription: Analyze Terraform\nruns:\n  using: composite\n  steps: []\n",
       );
       const joined = (await validateActionManifests(dir)).join("\n");
-      expect(joined).toContain(
-        "action manifest action.yml must run on a pinned Node runtime, got composite",
-      );
+      expect(joined).toContain("action manifest action.yml must run on node24, got composite");
     });
 
     test("rejects an entrypoint outside the committed bundle", async () => {

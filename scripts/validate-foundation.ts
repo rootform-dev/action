@@ -14,16 +14,19 @@ export const RELEASE_TAG_FORMAT = "v${version}";
 export const RELEASE_BRANCH = "main";
 
 export const expectedRootScripts = {
+  build: "bun scripts/build.ts",
   check:
-    "bun run check:foundation && bun run typecheck && bun run check:format && bun run test:tooling",
+    "bun run check:foundation && bun run typecheck && bun run check:format && bun run test:tooling && bun run test:runtime",
   "check:fast": "bun run check",
   "check:format": "biome check .",
   "check:foundation": "bun scripts/validate-foundation.ts",
   format: "biome check --write .",
   "hooks:install": "bun scripts/setup-dev.ts",
-  test: "bun test --pass-with-no-tests",
+  test: "bun run test:tooling && bun run test:runtime",
+  "test:runtime": "bun test src",
   "test:tooling": "bun test scripts",
   typecheck: "tsc --noEmit",
+  "verify:dist": "bun scripts/verify-dist.ts",
   verify: "bun scripts/verify.ts --full",
 } as const;
 
@@ -150,10 +153,8 @@ export async function validateActionManifests(root: string): Promise<string[]> {
       continue;
     }
     const using = runs.using;
-    if (typeof using !== "string" || !/^node\d+$/u.test(using)) {
-      errors.push(
-        `action manifest ${path} must run on a pinned Node runtime, got ${String(using)}`,
-      );
+    if (using !== "node24") {
+      errors.push(`action manifest ${path} must run on node24, got ${String(using)}`);
     }
     for (const step of ["main", "post", "pre"] as const) {
       const entry = runs[step];
@@ -274,6 +275,7 @@ async function main(): Promise<void> {
     "README.md",
     "SECURITY.md",
     "bun.lock",
+    "docs/adr/002-action-runtime-and-release-assets.md",
     "docs/adr/001-release-automation.md",
     "docs/constitution.md",
     "docs/engineering/go-public.md",
@@ -281,10 +283,24 @@ async function main(): Promise<void> {
     "docs/engineering/quality-gates.md",
     "docs/engineering/toolchain-policy.md",
     "package.json",
+    "action.yml",
+    "setup/action.yml",
+    "scripts/build.ts",
+    "scripts/verify-dist.ts",
     "scripts/verify.ts",
     "specs/000-template/plan.md",
     "specs/000-template/spec.md",
     "specs/000-template/tasks.md",
+    "specs/001-rootform-action/plan.md",
+    "specs/001-rootform-action/spec.md",
+    "specs/001-rootform-action/tasks.md",
+    "src/github.ts",
+    "src/install.ts",
+    "src/main-entry.ts",
+    "src/main.ts",
+    "src/run.ts",
+    "src/setup-entry.ts",
+    "src/setup.ts",
   ];
 
   for (const path of requiredFiles) {
@@ -339,9 +355,10 @@ async function main(): Promise<void> {
     ".env.example",
     "action.yml",
     "bun.lock",
-    "dist/index.js",
+    "dist/main/index.js",
+    "dist/setup/index.js",
     "setup/action.yml",
-    "src/installer.ts",
+    "src/install.ts",
   ]) {
     const result = git(["check-ignore", "--quiet", "--no-index", path], root);
     if (result.exitCode === 0) errors.push(`public source path is unexpectedly ignored: ${path}`);
