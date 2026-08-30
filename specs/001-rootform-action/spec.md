@@ -102,8 +102,8 @@ documented CLI exit status.
 
 ### REQ-008 — Bundle and metadata are reproducible
 
-- Acceptance: WHEN source is bundled twice with pinned toolchain THE SYSTEM
-  SHALL produce identical committed `dist/` bytes, and both action manifests
+- Acceptance: WHEN source is bundled twice with pinned toolchain THE SYSTEM SHALL
+  produce identical committed `dist/` bytes, and both action manifests
   SHALL name Node 24 and existing bundles.
 - Done when: `bun run build && bun run build && bun run verify:dist` exits `0`.
 - Evidence: `action.yml`, `setup/action.yml`, `dist/`, `scripts/build.ts`
