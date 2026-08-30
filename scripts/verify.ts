@@ -152,7 +152,7 @@ runGate({
    gate rebuilds it and refuses any difference. */
 if (existsSync(join(root, "src"))) {
   const manifest = await Bun.file(join(root, "package.json")).json();
-  if (typeof manifest.scripts?.["build"] !== "string") {
+  if (typeof manifest.scripts?.build !== "string") {
     console.error("package.json must define a build script once src/ exists");
     process.exit(1);
   }

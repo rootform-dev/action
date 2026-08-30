@@ -1,0 +1,59 @@
+name: Rootform
+description: Install Rootform, analyze Terraform or a plan, and publish verified results
+author: Rootform
+inputs:
+  version:
+    description: Exact Rootform version or latest
+    required: false
+    default: latest
+  github-token:
+    description: Optional token for private release migration tests
+    required: false
+    default: ""
+  mode:
+    description: Input mode, source or plan
+    required: false
+    default: source
+  path:
+    description: Terraform directory in source mode or JSON plan file in plan mode
+    required: false
+    default: .
+  output-directory:
+    description: New workspace-relative result directory
+    required: false
+    default: rootform-results
+  artifact-name:
+    description: GitHub Actions artifact name
+    required: false
+    default: rootform
+  upload-artifact:
+    description: Upload JSON, HTML, and SARIF result files
+    required: false
+    default: "true"
+  fail-on-violations:
+    description: Fail job when Rootform check exits 1
+    required: false
+    default: "true"
+outputs:
+  version:
+    description: Exact installed Rootform version
+  exit-code:
+    description: Exact Rootform check exit code
+  architecture:
+    description: Workspace-relative Architecture IR path
+  html:
+    description: Workspace-relative self-contained HTML path
+  policy-json:
+    description: Workspace-relative policy JSON path
+  sarif:
+    description: Workspace-relative SARIF path
+  artifact-id:
+    description: Uploaded GitHub Actions artifact identifier
+  artifact-url:
+    description: Uploaded GitHub Actions artifact URL
+runs:
+  using: node24
+  main: dist/main/index.js
+branding:
+  icon: map
+  color: blue

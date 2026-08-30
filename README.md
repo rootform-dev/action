@@ -6,24 +6,39 @@
 GitHub Actions integration for [Rootform](https://github.com/rootform-dev/rootform),
 the deterministic Terraform architecture compiler.
 
-This repository is pre-release and holds no published action yet. What exists
-today is the engineering foundation: governance, quality gates, and the agent
-guardrails the implementation will be built under.
+Repository remains private during migration. Action runtime, installer, tests,
+and committed bundles exist, but no public release or moving major tag is part
+of repository split.
 
 ## Intended surface
 
 Two entrypoints share one installer:
 
 ```yaml
-# Integrated experience: install Rootform, then analyze
-- uses: rootform-dev/action@v1
+# Integrated experience: install Rootform, analyze source, publish results
+- uses: rootform-dev/action@<full-commit-sha>
+  with:
+    version: 0.1.0-dev.1
+    path: .
 
 # Installation only, for advanced usage
-- uses: rootform-dev/action/setup@v1
+- uses: rootform-dev/action/setup@<full-commit-sha>
+  with:
+    version: 0.1.0-dev.1
 ```
 
-The action installs a pinned Rootform CLI, runs it, and reports what it said.
-It never reimplements parsing, diffing, policy evaluation, or coverage.
+During private migration only, pass a secret with read access to distribution
+releases as `github-token`. Public releases use identical installer path with no
+token. Caller repository `GITHUB_TOKEN` cannot read another private repository.
+
+Main entrypoint accepts `source` or `plan` mode. It writes Architecture IR,
+self-contained HTML, policy JSON, SARIF, and CLI Markdown; uploads only four
+named machine/render files; and appends only CLI Markdown to Job Summary. It
+never parses artifacts to invent semantic or policy conclusions.
+
+Release archive and `SHA256SUMS` must both match GitHub asset metadata. Binary
+enters tool cache and `PATH` only after archive checksum and reported version
+match requested release.
 
 ## Working in this repository
 
@@ -67,11 +82,12 @@ ordered checklist is `docs/engineering/go-public.md`.
 
 ## Relationship to the product
 
-The Rootform CLI, its semantics, and its exit codes live in
-`rootform-dev/rootform`. A behavior this action cannot express is a CLI feature
-request, not an action feature.
+`rootform-dev/rootform` owns release assets and public contracts.
+`rootform-dev/engine` privately owns CLI implementation and semantics. Action
+consumes documented CLI surface only. Behavior Action cannot express remains
+engine or public-contract change, not duplicated Action logic.
 
 ## License
 
-Rootform Action is licensed under the [Apache License 2.0](LICENSE), the same
-license as the Rootform CLI it orchestrates.
+Rootform Action source is licensed under [Apache License 2.0](LICENSE). Rootform
+binary release terms are separate and ship with each distribution archive.

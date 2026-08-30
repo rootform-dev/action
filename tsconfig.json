@@ -15,5 +15,5 @@
     "target": "ESNext",
     "types": ["bun"]
   },
-  "include": ["scripts/**/*.ts", ".claude/hooks/**/*.ts"]
+  "include": ["scripts/**/*.ts", "src/**/*.ts", ".claude/hooks/**/*.ts"]
 }
