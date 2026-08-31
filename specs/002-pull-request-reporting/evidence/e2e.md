@@ -85,3 +85,15 @@ SARIF hashes were stable across changed and unchanged runs.
   `pull_request` event. No `pull_request_target` or custom check run existed.
 - Job Summary used the same deterministic report renderer; its authenticated
   UI remains available through each workflow-run link.
+
+## Repository gates
+
+- Local complete gate: `bun run verify` — passed
+- Tooling tests: 114 passed
+- Runtime tests: 37 passed
+- Workflow validation: passed
+- Working-set and full-history secret scans: passed
+- Deterministic Node bundle rebuild: passed
+- GitHub quality: [run 33447972837](https://github.com/rootform-dev/action/actions/runs/33447972837) — passed
+- Current feature status: [PR #8 checks](https://github.com/rootform-dev/action/pull/8/checks)
+- Independent review: [`review.md`](review.md) — no P0–P3 finding

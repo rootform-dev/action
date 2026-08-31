@@ -55,18 +55,21 @@
 
 ## T005 — Complete verification
 
-- Status: In progress
+- Status: Completed
 - Owner: primary agent
 - Scope: final diff and repository gates
 - Depends on: T004
 - Requirements: REQ-011
 - Done when: `bun run verify` exits `0` locally and in GitHub Actions.
 - Expected evidence: final gate output and clean worktree
-- Evidence recorded: Pending
+- Evidence recorded: 2026-08-31 — local `bun run verify` passed with 114
+  tooling tests, 37 runtime tests, actionlint, deterministic bundle rebuild,
+  working-set secret scan, and full-history secret scan. GitHub quality run
+  `33447972837` passed; current status remains visible on PR #8.
 
 ## Final review
 
-- [ ] Every accepted requirement maps to at least one completed task.
-- [ ] `bun run verify` exits `0`.
-- [ ] Diff has no unrelated edit, private material, secret, generated noise, or unexplained dependency change.
-- [ ] Primary reviewer records limitations and owns completion claim.
+- [x] Every accepted requirement maps to at least one completed task.
+- [x] `bun run verify` exits `0`.
+- [x] Diff has no unrelated edit, private material, secret, generated noise, or unexplained dependency change.
+- [x] Primary reviewer records limitations and owns completion claim.
