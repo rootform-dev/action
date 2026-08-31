@@ -1,0 +1,48 @@
+name: published release integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact published Rootform version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: published-release-integration-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    name: install verified published release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out Action
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install exact published Rootform release
+        id: rootform
+        uses: ./setup
+        with:
+          version: ${{ inputs.version }}
+          github-token: ${{ secrets.ROOTFORM_RELEASES_READ_TOKEN }}
+
+      - name: Verify installed release identity
+        shell: bash
+        env:
+          INSTALLED_SHA256: ${{ steps.rootform.outputs.sha256 }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+          RESOLVED_VERSION: ${{ steps.rootform.outputs.version }}
+        run: |
+          set -euo pipefail
+          expected_version="${REQUESTED_VERSION#v}"
+          test "$RESOLVED_VERSION" = "$expected_version"
+          [[ "$INSTALLED_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          test "$(rootform version)" = "rootform $expected_version"
