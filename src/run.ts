@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { cliEnvironment } from "./environment.ts";
 
 export type Mode = "plan" | "source";
 
@@ -84,7 +85,7 @@ function run(command: string[], cwd: string): { exitCode: number; stderr: string
   const result = spawnSync(executable, args, {
     cwd,
     encoding: "utf8",
-    env: process.env,
+    env: cliEnvironment(),
     stdio: ["ignore", "pipe", "pipe"],
   });
   if (result.error) throw result.error;

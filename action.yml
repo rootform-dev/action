@@ -7,7 +7,7 @@ inputs:
     required: false
     default: latest
   github-token:
-    description: Optional token for private published Rootform releases
+    description: Optional token for authenticated Rootform release access
     required: false
     default: ""
   mode:
@@ -27,13 +27,29 @@ inputs:
     required: false
     default: rootform
   upload-artifact:
-    description: Upload JSON, HTML, and SARIF result files
+    description: Upload fixed Rootform result evidence
     required: false
     default: "true"
   fail-on-violations:
     description: Fail job when Rootform check exits 1
     required: false
     default: "true"
+  report-diff:
+    description: Generate exact Rootform architecture diff evidence
+    required: false
+    default: "false"
+  baseline-path:
+    description: Baseline Terraform directory for source diff reporting
+    required: false
+    default: ""
+  fail-on-changes:
+    description: Fail job when Rootform diff exits 1
+    required: false
+    default: "false"
+  pull-request-token:
+    description: Optional same-repository pull request comment token
+    required: false
+    default: ""
 outputs:
   version:
     description: Exact installed Rootform version
@@ -47,6 +63,16 @@ outputs:
     description: Workspace-relative policy JSON path
   sarif:
     description: Workspace-relative SARIF path
+  diff-exit-code:
+    description: Exact Rootform diff exit code when report-diff is enabled
+  diff-json:
+    description: Workspace-relative architecture diff JSON path
+  diff-markdown:
+    description: Workspace-relative architecture diff Markdown path
+  baseline-architecture:
+    description: Workspace-relative baseline Architecture IR path in source mode
+  baseline-html:
+    description: Workspace-relative baseline self-contained HTML path in source mode
   artifact-id:
     description: Uploaded GitHub Actions artifact identifier
   artifact-url:

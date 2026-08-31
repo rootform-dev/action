@@ -17,11 +17,13 @@ test("setup and main entrypoints import the one verified installer", async () =>
   expect(definitions).toEqual(["install.ts"]);
 
   const outputs = new Map<string, string>();
+  const secrets: string[] = [];
   let calls = 0;
   const dependencies: SetupDependencies = {
     core: {
       getInput: (name) => (name === "version" ? "1.2.3" : ""),
       setOutput: (name, value) => outputs.set(name, value),
+      setSecret: (value) => secrets.push(value),
     },
     install: async (options) => {
       calls++;
@@ -31,5 +33,6 @@ test("setup and main entrypoints import the one verified installer", async () =>
   };
   await setup(dependencies);
   expect(calls).toBe(1);
+  expect(secrets).toEqual([]);
   expect(Object.fromEntries(outputs)).toEqual({ sha256: "a".repeat(64), version: "1.2.3" });
 });
