@@ -23,10 +23,69 @@ Two entrypoints share one installer:
     version: 0.1.0
 ```
 
-Main entrypoint accepts `source` or `plan` mode. It writes Architecture IR,
-self-contained HTML, policy JSON, SARIF, and CLI Markdown; uploads only four
-named machine/render files; and appends only CLI Markdown to Job Summary. It
-never parses artifacts to invent semantic or policy conclusions.
+Main entrypoint accepts `source` or `plan` mode. By default it writes
+Architecture IR, self-contained HTML, policy JSON, SARIF, and CLI Markdown;
+uploads only four named machine/render files; and appends exact CLI policy
+Markdown to Job Summary. It never parses artifacts to invent semantic or
+policy conclusions.
+
+## Pull request architecture review
+
+Opt-in reporting compares caller-owned exact checkouts, publishes Rootform CLI
+diff and policy Markdown in Job Summary, updates one pull-request comment, and
+uploads complete machine evidence:
+
+```yaml
+name: Rootform architecture
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: rootform-head
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Check out base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: rootform-base
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Review architecture
+        uses: rootform-dev/action@v1
+        with:
+          path: rootform-head
+          baseline-path: rootform-base
+          report-diff: true
+          pull-request-token: ${{ github.token }}
+```
+
+Each source checkout must carry its exact project dialect set: vendored
+`.rootform/dialects`, or `rootform.lock` plus already installed dialects. Action
+runs each source project from its own root; it does not fetch Git revisions or
+install dialects. Fork pull requests still receive Summary and artifact
+evidence, but Action never uses a write token on them. Workflows must use
+`pull_request`, not `pull_request_target`.
+
+`report-diff` defaults to `false`. `fail-on-changes` gates documented diff exit
+`1` independently from `fail-on-violations`. Plan mode needs no
+`baseline-path`: Rootform derives before and planned architectures from the
+named plan JSON.
+
+The artifact inventory stays fixed. Existing analysis uploads current
+Architecture IR and HTML plus policy JSON and SARIF. Source diff reporting adds
+baseline Architecture IR and HTML plus exact diff JSON and Markdown. Plan diff
+reporting adds exact diff JSON and Markdown.
 
 Release archive and `SHA256SUMS` must both match GitHub asset metadata. Binary
 enters tool cache and `PATH` only after archive checksum and reported version

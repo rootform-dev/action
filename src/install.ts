@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as core from "@actions/core";
 import * as toolCache from "@actions/tool-cache";
+import { cliEnvironment } from "./environment.ts";
 import {
   downloadReleaseAsset,
   type FetchLike,
@@ -47,6 +48,7 @@ const defaultDependencies: InstallDependencies = {
   executeVersion: (binary) =>
     execFileSync(binary, ["version"], {
       encoding: "utf8",
+      env: cliEnvironment(),
       stdio: ["ignore", "pipe", "pipe"],
     }).trim(),
   extractTar: toolCache.extractTar,

@@ -5,6 +5,7 @@ export type SetupDependencies = {
   core: {
     getInput(name: string): string;
     setOutput(name: string, value: string): void;
+    setSecret?(value: string): void;
   };
   install(options: { token: string; version: string }): Promise<Installation>;
 };
@@ -15,8 +16,10 @@ const defaultDependencies: SetupDependencies = {
 };
 
 export async function setup(dependencies: SetupDependencies = defaultDependencies): Promise<void> {
+  const token = dependencies.core.getInput("github-token");
+  if (token) dependencies.core.setSecret?.(token);
   const installation = await dependencies.install({
-    token: dependencies.core.getInput("github-token"),
+    token,
     version: dependencies.core.getInput("version") || "latest",
   });
   dependencies.core.setOutput("version", installation.version);
