@@ -160,7 +160,7 @@ change itself.
   comment across a changed and unchanged rerun, expose downloadable evidence,
   and leave no published release or tag.
 - Done when: bounded manual protocol records pull-request, workflow-run,
-  comment, artifact, and screenshot URLs in
+  comment, artifact, annotation, and exact rendered-comment snapshots in
   `specs/002-pull-request-reporting/evidence/e2e.md`.
 - Evidence: private GitHub Actions run and public-safe screenshots referenced by
   the evidence record

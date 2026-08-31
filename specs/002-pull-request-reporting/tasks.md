@@ -41,18 +41,21 @@
 
 ## T004 — Real pull-request proof
 
-- Status: In progress
+- Status: Completed
 - Owner: primary agent
 - Scope: synthetic fixture, private GitHub PR, evidence record
 - Depends on: T003
 - Requirements: REQ-009
 - Done when: real changed and unchanged runs update one comment and preserve downloadable evidence.
 - Expected evidence: PR, run, comment, artifact, annotation, and screenshots
-- Evidence recorded: Pending
+- Evidence recorded: 2026-08-31 — private proof PR #9 ran the branch Action
+  against published Rootform `0.1.0-dev.2`; changed and unchanged runs updated
+  comment `5485676893` in place, emitted warning/notice annotations, and exposed
+  eight-file artifacts. See `evidence/e2e.md` and exact comment snapshots.
 
 ## T005 — Complete verification
 
-- Status: Not started
+- Status: In progress
 - Owner: primary agent
 - Scope: final diff and repository gates
 - Depends on: T004
