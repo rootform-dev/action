@@ -80,7 +80,7 @@ function trustedUrl(value: string, label: string, allowHash = false): string {
   return url.toString().replace(/\/$/u, "");
 }
 
-function workflowUrl(environment: NodeJS.ProcessEnv): string | undefined {
+export function readWorkflowUrl(environment: NodeJS.ProcessEnv = process.env): string | undefined {
   const server = environment.GITHUB_SERVER_URL;
   const repositoryName = environment.GITHUB_REPOSITORY;
   const runId = environment.GITHUB_RUN_ID;
@@ -98,7 +98,7 @@ export function readGitHubContext(
   const eventName = environment.GITHUB_EVENT_NAME || "";
   const context: GitHubContext = {
     eventName,
-    workflowUrl: workflowUrl(environment),
+    workflowUrl: readWorkflowUrl(environment),
   };
   if (eventName !== "pull_request") return context;
 

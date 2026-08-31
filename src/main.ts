@@ -8,6 +8,7 @@ import {
   type CommentResult,
   type GitHubContext,
   readGitHubContext,
+  readWorkflowUrl,
   upsertPullRequestComment,
 } from "./pull-request.ts";
 import { type ReportOptions, renderReport } from "./report.ts";
@@ -61,6 +62,7 @@ export type MainDependencies = {
     workspace: string;
   }): AnalysisResult;
   workspace(): string;
+  workflowUrl?(): string | undefined;
 };
 
 const defaultDependencies: MainDependencies = {
@@ -72,6 +74,7 @@ const defaultDependencies: MainDependencies = {
   install: installRootform,
   run: runAnalysis,
   workspace: () => resolve(process.env.GITHUB_WORKSPACE || process.cwd()),
+  workflowUrl: readWorkflowUrl,
 };
 
 function modeInput(actionCore: MainDependencies["core"]): Mode {
@@ -303,9 +306,11 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
         .uploadArtifact(name, files, outputDirectory);
       if (artifact.id === undefined) throw new Error("artifact upload returned no identifier");
       actionCore.setOutput("artifact-id", String(artifact.id));
-      if (artifact.artifactUrl) {
-        artifactUrl = artifact.artifactUrl;
-        actionCore.setOutput("artifact-url", artifact.artifactUrl);
+      const runUrl = (dependencies.workflowUrl ?? readWorkflowUrl)();
+      artifactUrl =
+        artifact.artifactUrl ?? (runUrl ? `${runUrl}/artifacts/${artifact.id}` : undefined);
+      if (artifactUrl) {
+        actionCore.setOutput("artifact-url", artifactUrl);
       }
     }
 
