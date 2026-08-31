@@ -202,10 +202,7 @@ describe("main Action entrypoint", () => {
         artifactClient: () => ({
           uploadArtifact: async (name, files, root) => {
             uploads.push({ files, name, root });
-            return {
-              artifactUrl: "https://github.com/rootform-dev/action/actions/runs/71/artifacts/17",
-              id: 17,
-            };
+            return { id: 17 };
           },
         }),
         comment: async ({ body, token }) => {
@@ -264,6 +261,7 @@ describe("main Action entrypoint", () => {
           return { exitCode: 0, paths };
         },
         workspace: () => workspace,
+        workflowUrl: () => "https://github.com/rootform-dev/action/actions/runs/71",
       });
 
       expect(state.failures).toEqual([]);
