@@ -10,14 +10,10 @@ terraform {
 }
 
 resource "aws_vpc" "main" {
-  cidr_block = "10.30.0.0/16"
+  cidr_block = "10.20.0.0/16"
 }
 
-resource "aws_subnet" "public" {
+resource "aws_subnet" "application" {
   vpc_id     = aws_vpc.main.id
-  cidr_block = "10.30.1.0/24"
-}
-
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
+  cidr_block = "10.20.1.0/24"
 }
