@@ -14,6 +14,13 @@
 
 ## T003 — Bundle and complete proof
 
-- Status: In progress
+- Status: Completed
 - Requirements: REQ-008, REQ-009
 - Done when: deterministic bundle sync and `bun run verify` pass.
+
+## T004 — Published-release boundary
+
+- Status: Completed
+- Requirements: REQ-001, REQ-002
+- Done when: exact private published prerelease succeeds, draft fails with or
+  without token, bundle sync passes, and `bun run verify` exits `0`.

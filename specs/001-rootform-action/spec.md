@@ -6,7 +6,10 @@
   `rootform-dev/action@v1` and `rootform-dev/action/setup@v1` against releases
   from `rootform-dev/rootform`, with source/plan execution, summaries, artifacts,
   and CI gating)
+- Amendment approval: @soulbah — 2026-08-31 (Action consumes published
+  Rootform releases only and rejects drafts regardless of authentication)
 - Created: 2026-08-30
+- Amended: 2026-08-31
 - Related ADR: ADR-002
 
 ## Problem
@@ -49,11 +52,12 @@ documented CLI exit status.
 - Done when: `bun test src/install.test.ts` exits `0`.
 - Evidence: `src/install.ts`, `src/install.test.ts`
 
-### REQ-002 — Private transition token stays optional
+### REQ-002 — Private published-release token stays optional
 
-- Acceptance: WHEN target release is private THE SYSTEM SHALL accept optional
-  read token without logging or outputting it, and WHEN release is public THE
-  SYSTEM SHALL perform same installation without token or account.
+- Acceptance: WHEN caller resolves a Rootform release THE SYSTEM SHALL accept an
+  optional read token only for a private published release, reject every draft
+  regardless of token presence, and install a public published release without
+  token or account.
 - Done when: `bun test src/github.test.ts` exits `0`.
 - Evidence: `src/github.ts`, `src/github.test.ts`
 
@@ -118,10 +122,10 @@ documented CLI exit status.
 
 ## Failure and privacy behavior
 
-Unsupported runner, unavailable version, missing asset, malformed checksum,
-digest mismatch, extraction failure, binary version mismatch, invalid input,
-CLI indeterminate result, or artifact upload failure stops Action explicitly.
-Partially verified executable never reaches `PATH`.
+Unsupported runner, unavailable or draft release, missing asset, malformed
+checksum, digest mismatch, extraction failure, binary version mismatch, invalid
+input, CLI indeterminate result, or artifact upload failure stops Action
+explicitly. Partially verified executable never reaches `PATH`.
 
 Raw Terraform, plan content, tokens, absolute runner paths, environment values,
 and machine documents never enter logs, outputs, or Job Summary. CLI owns
@@ -131,4 +135,5 @@ sanitization of its Markdown result; Action relays it without interpretation.
 
 Owner directive approves exact bounded outcome and public surface above.
 Implementation may proceed. Repository remains private and no major tag is
-published during this task.
+published during this task. Owner amendment on 2026-08-31 removes authenticated
+draft consumption; private transition tests use a published prerelease.

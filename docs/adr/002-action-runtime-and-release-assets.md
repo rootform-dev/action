@@ -2,9 +2,12 @@
 
 - Status: Accepted
 - Date: 2026-08-30
+- Amended: 2026-08-31
 - Owners: @soulbah
 - Owner approval: @soulbah — 2026-08-30 (delegated implementation decision
   within accepted four-repository split)
+- Amendment approval: @soulbah — 2026-08-31 (consume published Rootform
+  releases only; authentication never authorizes draft consumption)
 - Related spec: `specs/001-rootform-action/spec.md`
 
 ## Context
@@ -32,8 +35,12 @@ Current official evidence:
   ncc, esbuild, or second bundler is added.
 - Release repository is fixed at `rootform-dev/rootform`.
 - Version input defaults to `latest`; resolved output is always exact. Private
-  tests pass exact version plus optional `github-token`. Public downloads use
-  identical path without token.
+  tests pass exact version plus optional `github-token` against a published
+  prerelease. Public downloads use identical path without token.
+- Exact-version resolution uses only GitHub's release-by-tag endpoint. Action
+  rejects a response unless `draft` is explicitly false, even when caller
+  supplies a token. It never lists releases to discover authenticated drafts.
+  `latest` additionally rejects prereleases.
 - Asset names are `rootform_<version>_<os>_<arch>.tar.gz`, except Windows uses
   `.zip`. Supported map is linux amd64/arm64, darwin amd64/arm64, and windows
   amd64. Other runner combinations fail.
@@ -56,6 +63,9 @@ Current official evidence:
 - **Custom artifact REST client:** rejected because official client owns runner
   artifact protocol and authentication.
 - **Required token input:** rejected because public releases need none.
+- **Authenticated draft fallback:** rejected because Rootform owns candidate
+  qualification and publication; unfinished draft assets are not product
+  releases.
 - **Parse JSON for summary or verdict:** rejected because CLI owns semantics and
   already emits Markdown plus exit status.
 - **Floating release asset or checksum URL:** rejected because Action resolves
@@ -71,9 +81,10 @@ from normal caller configuration after public release.
 ## Validation
 
 Unit tests use synthetic release metadata and local HTTP responses. Bundle runs
-twice and compares bytes. Clean integration uses one private draft release,
-isolated runner paths, source and plan fixtures, checksum corruption negative
-case, summary, and artifact verification.
+twice and compares bytes. Clean integration uses one private published
+prerelease plus an authenticated draft rejection, isolated runner paths, source
+and plan fixtures, checksum corruption negative case, summary, and artifact
+verification.
 
 ## Reversal
 

@@ -7,7 +7,7 @@ inputs:
     required: false
     default: latest
   github-token:
-    description: Optional token for private release migration tests
+    description: Optional token for private published Rootform releases
     required: false
     default: ""
 outputs:
