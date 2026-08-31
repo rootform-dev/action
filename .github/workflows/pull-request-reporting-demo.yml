@@ -1,0 +1,42 @@
+name: pull request reporting demo
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  architecture-review:
+    name: architecture review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out demo branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prepare exact demo dialects
+        shell: bash
+        run: |
+          set -euo pipefail
+          for project in before current; do
+            mkdir -p "test/e2e/pull-request-reporting/${project}/.rootform"
+            cp -R \
+              test/e2e/pull-request-reporting/dialects \
+              "test/e2e/pull-request-reporting/${project}/.rootform/dialects"
+          done
+
+      - name: Run Rootform architecture review
+        uses: ./
+        with:
+          artifact-name: rootform-pr-${{ github.event.pull_request.number }}
+          baseline-path: test/e2e/pull-request-reporting/before
+          fail-on-changes: "false"
+          fail-on-violations: "true"
+          github-token: ${{ secrets.ROOTFORM_RELEASES_READ_TOKEN }}
+          path: test/e2e/pull-request-reporting/current
+          pull-request-token: ${{ github.token }}
+          report-diff: "true"
+          version: 0.1.0-dev.2

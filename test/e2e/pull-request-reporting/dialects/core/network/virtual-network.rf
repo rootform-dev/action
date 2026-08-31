@@ -1,0 +1,9 @@
+concept "virtual-network" {
+  kind        = scope
+  description = "A virtual network that provides connectivity and isolation."
+}
+
+concept "subnet" {
+  kind        = scope
+  description = "A subnet that segments a virtual network."
+}

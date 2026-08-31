@@ -1,0 +1,24 @@
+concept "managed-nat" {
+  kind        = entity
+  description = "A managed network address translation service."
+}
+
+concept "network-peering" {
+  kind        = entity
+  description = "A direct private connectivity agreement between virtual networks."
+}
+
+concept "private-endpoint" {
+  kind        = entity
+  description = "A private endpoint exposing a service inside a virtual network."
+}
+
+concept "vpn-gateway" {
+  kind        = entity
+  description = "A managed gateway terminating virtual private network connections."
+}
+
+concept "vpn-connection" {
+  kind        = entity
+  description = "A virtual private network connection between network endpoints."
+}

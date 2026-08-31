@@ -1,0 +1,187 @@
+rule "vpc" {
+  match {
+    kind = "resource"
+    type = "aws_vpc"
+  }
+
+  as = concept.core.virtual-network
+}
+
+rule "subnet" {
+  match {
+    kind = "resource"
+    type = "aws_subnet"
+  }
+
+  as = concept.core.subnet
+
+  context {
+    as  = context.core.network
+    to  = concept.core.virtual-network
+    via = source.vpc_id
+  }
+}
+
+rule "vpc-endpoint" {
+  match {
+    kind = "resource"
+    type = "aws_vpc_endpoint"
+  }
+
+  as = concept.core.private-endpoint
+
+  context {
+    as  = context.core.network
+    to  = concept.core.virtual-network
+    via = source.vpc_id
+  }
+}
+
+rule "ec2-transit-gateway" {
+  match {
+    kind = "resource"
+    type = "aws_ec2_transit_gateway"
+  }
+
+  as = concept.transit-gateway
+}
+
+rule "ec2-transit-gateway-vpc-attachment" {
+  match {
+    kind = "resource"
+    type = "aws_ec2_transit_gateway_vpc_attachment"
+  }
+
+  as = concept.transit-gateway-attachment
+
+  contribution {
+    to  = concept.transit-gateway
+    via = source.transit_gateway_id
+  }
+
+  context {
+    as  = context.core.network
+    to  = concept.core.virtual-network
+    via = source.vpc_id
+  }
+}
+
+rule "route-table" {
+  match {
+    kind = "resource"
+    type = "aws_route_table"
+  }
+
+  as = concept.route-table
+
+  context {
+    as  = context.core.network
+    to  = concept.core.virtual-network
+    via = source.vpc_id
+  }
+}
+
+rule "security-group" {
+  match {
+    kind = "resource"
+    type = "aws_security_group"
+  }
+
+  as = concept.security-group
+
+  context {
+    as  = context.core.network
+    to  = concept.core.virtual-network
+    via = source.vpc_id
+  }
+}
+
+rule "network-acl" {
+  match {
+    kind = "resource"
+    type = "aws_network_acl"
+  }
+
+  as = concept.network-acl
+
+  context {
+    as  = context.core.network
+    to  = concept.core.virtual-network
+    via = source.vpc_id
+  }
+}
+
+rule "internet-gateway" {
+  match {
+    kind = "resource"
+    type = "aws_internet_gateway"
+  }
+
+  as = concept.internet-gateway
+
+  context {
+    as  = context.core.network
+    to  = concept.core.virtual-network
+    via = source.vpc_id
+  }
+}
+
+rule "nat-gateway" {
+  match {
+    kind = "resource"
+    type = "aws_nat_gateway"
+  }
+
+  as = concept.core.managed-nat
+
+  context {
+    as  = context.core.network
+    to  = concept.core.subnet
+    via = source.subnet_id
+  }
+}
+
+rule "vpn-gateway" {
+  match {
+    kind = "resource"
+    type = "aws_vpn_gateway"
+  }
+
+  as = concept.core.vpn-gateway
+
+  context {
+    as  = context.core.network
+    to  = concept.core.virtual-network
+    via = source.vpc_id
+  }
+}
+
+rule "vpc-peering-connection" {
+  match {
+    kind = "resource"
+    type = "aws_vpc_peering_connection"
+  }
+
+  as = concept.core.network-peering
+}
+
+rule "vpn-connection" {
+  match {
+    kind = "resource"
+    type = "aws_vpn_connection"
+  }
+
+  as = concept.core.vpn-connection
+
+  context {
+    as  = context.core.network
+    to  = concept.core.vpn-gateway
+    via = source.vpn_gateway_id
+  }
+
+  context {
+    as  = context.core.network
+    to  = concept.transit-gateway
+    via = source.transit_gateway_id
+  }
+}

@@ -1,0 +1,15 @@
+context "network" {
+  description = "Network placement or containment."
+}
+
+context "runtime" {
+  description = "Runtime placement or execution scope."
+}
+
+context "ownership" {
+  description = "Administrative or lifecycle ownership."
+}
+
+context "geography" {
+  description = "Geographic placement."
+}
