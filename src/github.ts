@@ -76,7 +76,7 @@ export async function resolveRelease(
       token,
       fetcher,
     );
-    if (release.draft || release.prerelease)
+    if (release.draft !== false || release.prerelease !== false)
       throw new Error("latest Rootform release is not stable");
     return { release, version: normalizeVersion(release.tag_name) };
   }
@@ -87,24 +87,13 @@ export async function resolveRelease(
     token,
     fetcher,
   );
-  let release: Release;
-  if (response.ok) {
-    release = (await response.json()) as Release;
-  } else if (response.status === 404 && token) {
-    const releases = await jsonRequest<Release[]>(
-      `/repos/${releaseRepository}/releases?per_page=100`,
-      token,
-      fetcher,
-    );
-    const found = releases.find((candidate) => candidate.tag_name === tag);
-    if (!found) throw new Error(`Rootform release ${tag} was not found`);
-    release = found;
-  } else {
+  if (!response.ok) {
+    if (response.status === 404) throw new Error(`Rootform release ${tag} was not found`);
     throw new Error(`GitHub release request failed with status ${response.status}`);
   }
+  const release = (await response.json()) as Release;
   if (release.tag_name !== tag) throw new Error(`Rootform release tag does not match ${tag}`);
-  if (release.draft && !token)
-    throw new Error("draft Rootform release requires private read token");
+  if (release.draft !== false) throw new Error("draft Rootform releases are not installable");
   return { release, version: normalized };
 }
 

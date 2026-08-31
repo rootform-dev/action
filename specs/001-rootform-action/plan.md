@@ -20,6 +20,8 @@
    and exit gate.
 5. Add manifests, build deterministic bundles, extend gates, and run clean
    private-release integration.
+6. Restrict exact-version resolution to published releases and prove a token
+   cannot make a draft installable.
 
 ## Rollback
 

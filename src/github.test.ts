@@ -44,7 +44,7 @@ describe("GitHub release client", () => {
     ]);
   });
 
-  test("uses optional token to resolve an exact private draft", async () => {
+  test("uses optional token to resolve an exact private published prerelease", async () => {
     const calls: Array<{ authorization: string | null; url: string }> = [];
     const fetcher: FetchLike = async (input, init) => {
       const url = String(input);
@@ -52,21 +52,55 @@ describe("GitHub release client", () => {
         authorization: new Headers(init?.headers).get("Authorization"),
         url,
       });
-      if (url.endsWith("/releases/tags/v0.1.0-dev.1")) return json({}, 404);
-      return json([
-        {
-          assets: [],
-          draft: true,
-          prerelease: true,
-          tag_name: "v0.1.0-dev.1",
-        },
-      ]);
+      return json({
+        assets: [],
+        draft: false,
+        prerelease: true,
+        tag_name: "v0.1.0-dev.2",
+      });
     };
 
-    const resolved = await resolveRelease("0.1.0-dev.1", "private-token", fetcher);
-    expect(resolved.release.draft).toBeTrue();
-    expect(calls).toHaveLength(2);
+    const resolved = await resolveRelease("0.1.0-dev.2", "private-token", fetcher);
+    expect(resolved.release.draft).toBeFalse();
+    expect(resolved.release.prerelease).toBeTrue();
+    expect(calls).toHaveLength(1);
     expect(calls.every((call) => call.authorization === "Bearer private-token")).toBeTrue();
+    expect(calls[0]?.url).toEndWith("/releases/tags/v0.1.0-dev.2");
+  });
+
+  test("rejects an exact draft even with a private token", async () => {
+    const calls: string[] = [];
+    const fetcher: FetchLike = async (input) => {
+      calls.push(String(input));
+      return json({
+        assets: [],
+        draft: true,
+        prerelease: true,
+        tag_name: "v0.1.0-dev.2",
+      });
+    };
+
+    await expect(resolveRelease("0.1.0-dev.2", "private-token", fetcher)).rejects.toThrow(
+      "draft Rootform releases are not installable",
+    );
+    expect(calls).toEqual([
+      "https://api.github.com/repos/rootform-dev/rootform/releases/tags/v0.1.0-dev.2",
+    ]);
+  });
+
+  test("does not list releases when an exact tag is unavailable", async () => {
+    const calls: string[] = [];
+    const fetcher: FetchLike = async (input) => {
+      calls.push(String(input));
+      return json({}, 404);
+    };
+
+    await expect(resolveRelease("0.1.0-dev.2", "private-token", fetcher)).rejects.toThrow(
+      "Rootform release v0.1.0-dev.2 was not found",
+    );
+    expect(calls).toEqual([
+      "https://api.github.com/repos/rootform-dev/rootform/releases/tags/v0.1.0-dev.2",
+    ]);
   });
 
   test("downloads exact asset bytes and rejects size drift", async () => {
