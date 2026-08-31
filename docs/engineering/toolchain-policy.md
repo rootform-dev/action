@@ -9,7 +9,7 @@ Exclude prereleases, nightly builds, abandoned packages, and combinations whose 
 ## Active foundation toolchain
 
 `package.json`, `bun.lock`, workflow SHAs, and CI checks are source of truth. The
-current foundation pins Bun 1.3.14, TypeScript 7.0.2, Biome 2.5.8, Bun types
+current foundation pins Bun 1.3.14, TypeScript 7.0.2, Biome 2.5.11, Bun types
 1.3.14, Gitleaks 8.30.1, and actionlint 1.7.12. Release automation pins
 semantic-release 25.0.9 with `@semantic-release/commit-analyzer` 13.0.1,
 `@semantic-release/release-notes-generator` 14.1.1, `@semantic-release/github`
@@ -61,6 +61,8 @@ verified this way does not enter the gate.
 
 - GitHub Actions use immutable 40-character commit SHAs with tag comments.
 - Dependabot tracks Bun and GitHub Actions. Group routine weekly updates.
+- Dependabot ignores `@types/bun`. Bun runtime, `packageManager`, engine pin,
+  workflow pin, and Bun types move together in one reviewed toolchain change.
 - Never run two dependency bots against the same ecosystem.
 - Security updates receive priority but still pass all gates. No blind auto-merge.
 - Review stable releases at least weekly during active development and before each release cut.
