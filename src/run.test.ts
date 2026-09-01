@@ -50,6 +50,31 @@ describe("Rootform command execution", () => {
     }
   });
 
+  test("runs source commands from exact project roots", () => {
+    const workspace = mkdtempSync(join(tmpdir(), "rootform-run-root-test-"));
+    const project = join(workspace, "infra");
+    const workingDirectories: string[] = [];
+    try {
+      const result = runAnalysis({
+        binary: "rootform",
+        input: ".",
+        mode: "source",
+        outputDirectory: join(workspace, "results"),
+        runner: (command, cwd) => {
+          workingDirectories.push(cwd);
+          expect(command[2]).toBe(".");
+          return { exitCode: 0, stderr: "" };
+        },
+        workspace: project,
+      });
+      expect(result.exitCode).toBe(0);
+      expect(workingDirectories).toHaveLength(5);
+      expect(new Set(workingDirectories)).toEqual(new Set([project]));
+    } finally {
+      rmSync(workspace, { force: true, recursive: true });
+    }
+  });
+
   test("rejects inconsistent formats and preserves build failure code", () => {
     const workspace = mkdtempSync(join(tmpdir(), "rootform-run-test-"));
     try {
