@@ -8,6 +8,8 @@
   within accepted four-repository split)
 - Amendment approval: @soulbah — 2026-08-31 (consume published Rootform
   releases only; authentication never authorizes draft consumption)
+- Toolchain amendment approval: @soulbah — 2026-08-31 (explicit delegation to
+  decide Bun 1.4 adoption locally and in CI)
 - Related spec: `specs/001-rootform-action/spec.md`
 
 ## Context
@@ -31,7 +33,7 @@ Current official evidence:
 ## Decision
 
 - Both entrypoints run committed bundles on Node 24.
-- Exact direct runtime dependencies above are bundled with Bun 1.3.14. No npm,
+- Exact direct runtime dependencies above are bundled with Bun 1.4.0. No npm,
   ncc, esbuild, or second bundler is added.
 - Release repository is fixed at `rootform-dev/rootform`.
 - Version input defaults to `latest`; resolved output is always exact. Private
