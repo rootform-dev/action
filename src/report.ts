@@ -15,9 +15,24 @@ export type ReportOptions = {
   mode: "plan" | "source";
   policyExitCode: number;
   policyMarkdown: string;
+  preparation?: PreparationSummary;
   version: string;
   workflowUrl?: string;
 };
+
+/* Preparation presentation carries dialect identity and the caller-facing lock
+   state only. It never carries a runner path, an environment value, raw
+   Terraform material, or a credential. */
+export type PreparationSummary = {
+  dialects: Array<{ name: string; version: string }>;
+  lockCreated: boolean;
+  lockPath?: string;
+  resolutionMode: string;
+  unsupportedProviders: string[];
+};
+
+export const GENERATED_LOCK_MESSAGE =
+  "Rootform generated rootform.lock for this run. Commit this file to make future analyses reproducible.";
 
 export type ReportTarget = "comment" | "summary";
 
@@ -120,6 +135,10 @@ function report(
     ].join("\n"),
   );
 
+  if (options.preparation?.lockCreated) {
+    sections.push(`> [!IMPORTANT]\n> ${GENERATED_LOCK_MESSAGE}`);
+  }
+
   if (options.diffMarkdown !== undefined) {
     sections.push(
       inlineDiff
@@ -132,6 +151,38 @@ function report(
       ? exactSection("Policy checks", options.policyMarkdown, options.policyExitCode === 1)
       : omittedSection("Policy checks", options),
   );
+
+  if (options.preparation) {
+    const preparation = options.preparation;
+    const rows = [
+      `- Resolution mode: ${inline(preparation.resolutionMode)}`,
+      `- Dialects: ${
+        preparation.dialects.length === 0
+          ? "None required"
+          : preparation.dialects.map(({ name, version }) => inline(`${name}@${version}`)).join(", ")
+      }`,
+      `- Project lock: ${
+        preparation.lockCreated
+          ? "Generated for this run"
+          : preparation.lockPath
+            ? `Committed at ${inline(preparation.lockPath)}`
+            : "Not present"
+      }`,
+      ...(preparation.unsupportedProviders.length > 0
+        ? [
+            `- Providers without an official dialect: ${preparation.unsupportedProviders
+              .map((provider) => inline(provider))
+              .join(", ")}`,
+          ]
+        : []),
+    ];
+    sections.push(
+      `<details>\n<summary><strong>Dialect preparation</strong></summary>\n\n${rows.join(
+        "\n",
+      )}\n\n</details>`,
+    );
+  }
+
   sections.push(`### Evidence\n\n${evidenceLinks(options)}`);
 
   const provenance = [

@@ -29,6 +29,56 @@ uploads only four named machine/render files; and appends exact CLI policy
 Markdown to Job Summary. It never parses artifacts to invent semantic or
 policy conclusions.
 
+## Dialect preparation
+
+Before analyzing anything, the main entrypoint prepares the project once by
+running the Rootform CLI initialization command. That single command resolves
+providers, selects dialects, acquires what is missing, and writes
+`rootform.lock`. The Action reports what the CLI said; it never resolves,
+downloads, or locks anything itself.
+
+```yaml
+- uses: rootform-dev/action@v1
+  with:
+    path: infra
+    locked: true      # require and preserve the existing rootform.lock
+    offline: true     # use only vendored, installed, and cached dialect data
+```
+
+`locked` and `offline` are independent, and they map to the CLI's own flags:
+
+| `locked` | `offline` | Behavior |
+| --- | --- | --- |
+| `false` | `false` | Resolve normally and write `rootform.lock` when needed |
+| `true` | `false` | Require an existing lock; still fetch exactly what it pins |
+| `false` | `true` | Resolve without any network access |
+| `true` | `true` | Fully frozen: existing lock, no network |
+
+Preparation is always non-interactive, so a job can never wait for a prompt.
+
+A run in a repository without a lock completes and reports the generated file
+through `lock-created` and `lock-path`, includes it in the uploaded artifact,
+and states in the Job Summary that it should be committed. The Action never
+stages, commits, or pushes it.
+
+The Rootform home is created per job under the runner temporary directory and
+exported as `ROOTFORM_HOME` so later steps in the same job reuse it. Its
+absolute path is never published as an output, in the Job Summary, or in an
+artifact.
+
+`cache` defaults to `true` and reuses verified immutable dialect payload
+between runs: installed dialects and content-addressed blobs only. The official
+index is never cached, because it is mutable selection state and sharing it
+between two revisions of a pull request would let one revision decide what the
+other resolves. A restored entry is never authoritative — preparation still runs
+and the CLI re-verifies every dialect by digest, so a cache miss, a cache error,
+and a poisoned entry are all equivalent to a slower run.
+
+A failed preparation stops the job with the CLI diagnostic, runs no analysis
+command, and leaves the project lock untouched.
+
+The `setup` entrypoint installs and verifies a CLI. It never prepares dialects.
+
 ## Pull request architecture review
 
 Opt-in reporting compares caller-owned exact checkouts, publishes Rootform CLI
@@ -70,12 +120,10 @@ jobs:
           pull-request-token: ${{ github.token }}
 ```
 
-Each source checkout must carry its exact project dialect set: vendored
-`.rootform/dialects`, or `rootform.lock` plus already installed dialects. Action
-runs each source project from its own root; it does not fetch Git revisions or
-install dialects. Fork pull requests still receive Summary and artifact
-evidence, but Action never uses a write token on them. Workflows must use
-`pull_request`, not `pull_request_target`.
+Action runs each source project from its own root and does not fetch Git
+revisions. Fork pull requests still receive Summary and artifact evidence, but
+Action never uses a write token on them. Workflows must use `pull_request`, not
+`pull_request_target`.
 
 `report-diff` defaults to `false`. `fail-on-changes` gates documented diff exit
 `1` independently from `fail-on-violations`. Plan mode needs no
