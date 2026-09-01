@@ -1,9 +1,26 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { diffPaths } from "./diff.ts";
-import { containedInput, containedOutput, type MainDependencies, main } from "./main.ts";
+import {
+  containedInput,
+  containedOutput,
+  GENERATED_LOCK_NOTICE,
+  LOCK_FILE,
+  type MainDependencies,
+  main,
+} from "./main.ts";
+import type { Preparation } from "./preparation.ts";
 import { REPORT_MARKER } from "./report.ts";
 import { RootformCommandError, resultPaths } from "./run.ts";
 
@@ -16,6 +33,7 @@ function fakeCore(
   outputs: Map<string, string>;
   secrets: string[];
   summaries: string[];
+  variables: Map<string, string>;
   warnings: string[];
 } {
   const failures: string[] = [];
@@ -23,9 +41,11 @@ function fakeCore(
   const outputs = new Map<string, string>();
   const secrets: string[] = [];
   const summaries: string[] = [];
+  const variables = new Map<string, string>();
   const warnings: string[] = [];
   return {
     core: {
+      exportVariable: (name, value) => variables.set(name, value),
       getBooleanInput: (name) => options.booleans?.[name] ?? false,
       getInput: (name) => options.inputs?.[name] ?? "",
       notice: (message) => notices.push(message),
@@ -46,13 +66,31 @@ function fakeCore(
     outputs,
     secrets,
     summaries,
+    variables,
     warnings,
   };
+}
+
+function fakePreparation(overrides: Partial<Preparation> = {}): Preparation {
+  return {
+    dialects: [{ name: "aws", version: "0.1.0" }],
+    lockWritten: false,
+    providersDetected: 1,
+    resolutionMode: "default",
+    unsupportedProviders: [],
+    warnings: [],
+    ...overrides,
+  };
+}
+
+function runnerTemporary(): string {
+  return mkdtempSync(join(tmpdir(), "rootform-home-test-"));
 }
 
 describe("main Action entrypoint", () => {
   test("publishes only relative outputs, CLI summary, and allow-listed artifacts", async () => {
     const workspace = mkdtempSync(join(tmpdir(), "rootform-main-test-"));
+    const home = runnerTemporary();
     const state = fakeCore({
       booleans: { "fail-on-violations": false, "upload-artifact": true },
       inputs: { "artifact-name": "rootform-test", "output-directory": "results" },
@@ -66,11 +104,13 @@ describe("main Action entrypoint", () => {
         },
       }),
       core: state.core,
+      home: () => home,
       install: async () => ({
         binary: "/tool-cache/rootform",
         sha256: "a".repeat(64),
         version: "1.2.3",
       }),
+      prepare: () => fakePreparation(),
       run: (options) => {
         mkdirSync(options.outputDirectory);
         const paths = resultPaths(options.outputDirectory);
@@ -98,7 +138,9 @@ describe("main Action entrypoint", () => {
         "artifact-url": "https://example.invalid/artifact/17",
         "exit-code": "0",
         html: "results/architecture.html",
+        "lock-created": "false",
         "policy-json": "results/policy.json",
+        "resolution-mode": "default",
         sarif: "results/policy.sarif",
         version: "1.2.3",
       });
@@ -116,12 +158,14 @@ describe("main Action entrypoint", () => {
       ]);
       expect([...state.outputs.values()].some((value) => value.includes(workspace))).toBeFalse();
     } finally {
+      rmSync(home, { force: true, recursive: true });
       rmSync(workspace, { force: true, recursive: true });
     }
   });
 
   test("preserves invalid CLI code and skips summaries and artifacts", async () => {
     const workspace = mkdtempSync(join(tmpdir(), "rootform-main-test-"));
+    const home = runnerTemporary();
     const state = fakeCore({ booleans: { "upload-artifact": true } });
     let uploadCalled = false;
     try {
@@ -133,7 +177,9 @@ describe("main Action entrypoint", () => {
           },
         }),
         core: state.core,
+        home: () => home,
         install: async () => ({ binary: "rootform", sha256: "a".repeat(64), version: "1.2.3" }),
+        prepare: () => fakePreparation(),
         run: (options) => {
           mkdirSync(options.outputDirectory);
           return { exitCode: 3, paths: resultPaths(options.outputDirectory) };
@@ -143,6 +189,8 @@ describe("main Action entrypoint", () => {
       expect(state.outputs).toEqual(
         new Map([
           ["version", "1.2.3"],
+          ["resolution-mode", "default"],
+          ["lock-created", "false"],
           ["exit-code", "3"],
         ]),
       );
@@ -150,18 +198,22 @@ describe("main Action entrypoint", () => {
       expect(state.summaries).toEqual([]);
       expect(uploadCalled).toBeFalse();
     } finally {
+      rmSync(home, { force: true, recursive: true });
       rmSync(workspace, { force: true, recursive: true });
     }
   });
 
   test("redacts runner path while retaining exact command failure code", async () => {
     const workspace = mkdtempSync(join(tmpdir(), "rootform-main-test-"));
+    const home = runnerTemporary();
     const state = fakeCore();
     try {
       await main({
         artifactClient: () => ({ uploadArtifact: async () => ({ id: 1 }) }),
         core: state.core,
+        home: () => home,
         install: async () => ({ binary: "rootform", sha256: "a".repeat(64), version: "1.2.3" }),
+        prepare: () => fakePreparation(),
         run: () => {
           throw new RootformCommandError(3, `${workspace}/secret.tf failed`);
         },
@@ -170,12 +222,14 @@ describe("main Action entrypoint", () => {
       expect(state.outputs.get("exit-code")).toBe("3");
       expect(state.failures).toEqual(["<runner-path>/secret.tf failed"]);
     } finally {
+      rmSync(home, { force: true, recursive: true });
       rmSync(workspace, { force: true, recursive: true });
     }
   });
 
   test("uploads pull request evidence and updates one GitHub-native report", async () => {
     const workspace = mkdtempSync(join(tmpdir(), "rootform-main-report-test-"));
+    const home = runnerTemporary();
     const baseline = join(workspace, "before");
     const current = join(workspace, "after");
     mkdirSync(baseline);
@@ -239,11 +293,13 @@ describe("main Action entrypoint", () => {
           writeFileSync(paths.markdown, "## Rootform diff\n\n| Change | What |\n| --- | --- |\n");
           return { exitCode: 1, paths };
         },
+        home: () => home,
         install: async () => ({
           binary: "/tool-cache/rootform",
           sha256: "a".repeat(64),
           version: "0.1.0-dev.2",
         }),
+        prepare: () => fakePreparation(),
         run: (options) => {
           expect(options.input).toBe(".");
           expect(options.workspace).toBe(current);
@@ -287,7 +343,9 @@ describe("main Action entrypoint", () => {
         "diff-markdown": "results/architecture-diff.md",
         "exit-code": "0",
         html: "results/architecture.html",
+        "lock-created": "false",
         "policy-json": "results/policy.json",
+        "resolution-mode": "default",
         sarif: "results/policy.sarif",
         version: "0.1.0-dev.2",
       });
@@ -315,12 +373,14 @@ describe("main Action entrypoint", () => {
         }),
       ).not.toContain("comment-token");
     } finally {
+      rmSync(home, { force: true, recursive: true });
       rmSync(workspace, { force: true, recursive: true });
     }
   });
 
   test("gates architecture changes independently and preserves diff failures", async () => {
     const workspace = mkdtempSync(join(tmpdir(), "rootform-main-gate-test-"));
+    const home = runnerTemporary();
     mkdirSync(join(workspace, "before"));
     const state = fakeCore({
       booleans: { "fail-on-changes": true, "report-diff": true },
@@ -337,7 +397,9 @@ describe("main Action entrypoint", () => {
           writeFileSync(paths.json, "{}");
           return { exitCode: 1, paths };
         },
+        home: () => home,
         install: async () => ({ binary: "rootform", sha256: "a".repeat(64), version: "1.2.3" }),
+        prepare: () => fakePreparation(),
         run: (options) => {
           mkdirSync(options.outputDirectory);
           const paths = resultPaths(options.outputDirectory);
@@ -350,6 +412,148 @@ describe("main Action entrypoint", () => {
       expect(state.failures).toEqual(["Rootform diff exited 1"]);
       expect(state.summaries[0]).toContain("Skipped — workflow event is not `pull_request`");
     } finally {
+      rmSync(home, { force: true, recursive: true });
+      rmSync(workspace, { force: true, recursive: true });
+    }
+  });
+
+  test("isolates the Rootform home without publishing its path", async () => {
+    const workspace = mkdtempSync(join(tmpdir(), "rootform-main-home-test-"));
+    const runnerTemp = mkdtempSync(join(tmpdir(), "rootform-runner-temp-"));
+    const originalRunnerTemp = process.env.RUNNER_TEMP;
+    const originalHome = process.env.ROOTFORM_HOME;
+    process.env.RUNNER_TEMP = runnerTemp;
+    const state = fakeCore({
+      booleans: { "upload-artifact": true },
+      inputs: { "output-directory": "results" },
+    });
+    const uploads: Array<{ files: string[]; root: string }> = [];
+    let observedHome: string | undefined;
+    try {
+      await main({
+        artifactClient: () => ({
+          uploadArtifact: async (_name, files, root) => {
+            uploads.push({ files, root });
+            return { id: 5 };
+          },
+        }),
+        core: state.core,
+        install: async () => ({ binary: "rootform", sha256: "a".repeat(64), version: "0.1.0" }),
+        prepare: () => {
+          observedHome = process.env.ROOTFORM_HOME;
+          return fakePreparation();
+        },
+        run: (options) => {
+          mkdirSync(options.outputDirectory);
+          const paths = resultPaths(options.outputDirectory);
+          for (const path of Object.values(paths)) writeFileSync(path, "# Rootform\n");
+          return { exitCode: 0, paths };
+        },
+        workspace: () => workspace,
+      });
+
+      expect(state.failures).toEqual([]);
+      const exported = state.variables.get("ROOTFORM_HOME");
+      expect(exported).toBeString();
+      const home = exported as string;
+      // The home is created under the runner temporary directory so one job can
+      // never observe another job's dialect store.
+      expect(home).toStartWith(`${runnerTemp}/`);
+      expect(existsSync(home)).toBeTrue();
+      // Preparation observes the isolated home rather than the ambient one.
+      expect(observedHome).toBe(home);
+
+      // Constitution VII: the absolute runner path is exported for later steps
+      // and published nowhere.
+      for (const value of state.outputs.values()) expect(value).not.toContain(runnerTemp);
+      expect(state.summaries.join("\n")).not.toContain(runnerTemp);
+      expect(state.warnings.join("\n")).not.toContain(runnerTemp);
+      expect(state.notices.join("\n")).not.toContain(runnerTemp);
+      expect(uploads).toHaveLength(1);
+      expect(uploads[0]?.root).toBe(join(workspace, "results"));
+      for (const file of uploads[0]?.files ?? []) expect(file).not.toContain(runnerTemp);
+    } finally {
+      if (originalRunnerTemp === undefined) delete process.env.RUNNER_TEMP;
+      else process.env.RUNNER_TEMP = originalRunnerTemp;
+      if (originalHome === undefined) delete process.env.ROOTFORM_HOME;
+      else process.env.ROOTFORM_HOME = originalHome;
+      rmSync(runnerTemp, { force: true, recursive: true });
+      rmSync(workspace, { force: true, recursive: true });
+    }
+  });
+
+  test("surfaces a generated lock without committing it", async () => {
+    const workspace = mkdtempSync(join(tmpdir(), "rootform-main-lock-test-"));
+    const home = runnerTemporary();
+    const project = join(workspace, "infra");
+    mkdirSync(project);
+    writeFileSync(join(project, "main.tf"), 'provider "aws" {}\n');
+    const git = (...args: string[]) =>
+      spawnSync("git", args, { cwd: workspace, encoding: "utf8", stdio: "pipe" });
+    git("init", "--quiet", "--initial-branch", "work");
+    git("add", "--all");
+    git(
+      "-c",
+      "user.email=t@example.invalid",
+      "-c",
+      "user.name=Test",
+      "commit",
+      "--quiet",
+      "-m",
+      "seed",
+    );
+
+    const state = fakeCore({
+      booleans: { "upload-artifact": true },
+      inputs: { "artifact-name": "rootform", "output-directory": "results", path: "infra" },
+    });
+    const uploads: Array<{ files: string[]; root: string }> = [];
+    try {
+      await main({
+        artifactClient: () => ({
+          uploadArtifact: async (_name, files, root) => {
+            uploads.push({ files, root });
+            return { id: 9 };
+          },
+        }),
+        context: () => ({ eventName: "push" }),
+        core: state.core,
+        home: () => home,
+        install: async () => ({ binary: "rootform", sha256: "a".repeat(64), version: "0.1.0" }),
+        prepare: (options) => {
+          // The CLI owns lock creation; the Action only observes the result.
+          writeFileSync(join(options.workspace, LOCK_FILE), '{"format_version":"1"}\n');
+          return fakePreparation({ lockWritten: true });
+        },
+        run: (options) => {
+          mkdirSync(options.outputDirectory);
+          const paths = resultPaths(options.outputDirectory);
+          for (const path of Object.values(paths)) writeFileSync(path, "# Rootform\n");
+          return { exitCode: 0, paths };
+        },
+        workspace: () => workspace,
+      });
+
+      expect(state.failures).toEqual([]);
+      expect(state.outputs.get("lock-created")).toBe("true");
+      expect(state.outputs.get("lock-path")).toBe("infra/rootform.lock");
+      expect(state.warnings).toContain(GENERATED_LOCK_NOTICE);
+
+      // The generated lock travels as artifact evidence, copied into the result
+      // directory rather than uploaded from the project tree.
+      const lockEvidence = join(workspace, "results", LOCK_FILE);
+      expect(uploads).toHaveLength(1);
+      expect(uploads[0]?.files).toContain(lockEvidence);
+      expect(readFileSync(lockEvidence, "utf8")).toBe('{"format_version":"1"}\n');
+
+      // The repository keeps the lock untracked: nothing stages, commits, or
+      // pushes it on the caller's behalf.
+      const status = git("status", "--porcelain").stdout;
+      expect(status).toContain("?? infra/rootform.lock");
+      expect(status).not.toContain("A  infra/rootform.lock");
+      expect(git("log", "--oneline").stdout.trim().split("\n")).toHaveLength(1);
+    } finally {
+      rmSync(home, { force: true, recursive: true });
       rmSync(workspace, { force: true, recursive: true });
     }
   });

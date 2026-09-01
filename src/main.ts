@@ -1,9 +1,12 @@
-import { existsSync, lstatSync, readFileSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { copyFileSync, existsSync, lstatSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { DefaultArtifactClient } from "@actions/artifact";
 import * as core from "@actions/core";
+import { type CacheClient, cacheKeys, restoreDialectCache, saveDialectCache } from "./cache.ts";
 import { type DiffResult, runDiff } from "./diff.ts";
 import { type Installation, installRootform } from "./install.ts";
+import { type Preparation, runPreparation } from "./preparation.ts";
 import {
   type CommentResult,
   type GitHubContext,
@@ -22,10 +25,16 @@ import {
 
 type ArtifactResult = { artifactUrl?: string; id?: number };
 
+export const LOCK_FILE = "rootform.lock";
+
+export const GENERATED_LOCK_NOTICE =
+  "Rootform generated rootform.lock for this run. Commit this file to make future analyses reproducible.";
+
 export type MainDependencies = {
   artifactClient(): {
     uploadArtifact(name: string, files: string[], rootDirectory: string): Promise<ArtifactResult>;
   };
+  cacheClient?(): CacheClient;
   comment?(options: {
     body: string;
     identity: NonNullable<GitHubContext["pullRequest"]>;
@@ -33,6 +42,7 @@ export type MainDependencies = {
   }): Promise<CommentResult>;
   context?(): GitHubContext;
   core: {
+    exportVariable?(name: string, value: string): void;
     getBooleanInput(name: string): boolean;
     getInput(name: string): string;
     notice?(message: string): void;
@@ -53,7 +63,15 @@ export type MainDependencies = {
     outputDirectory: string;
     workspace: string;
   }): DiffResult;
+  home?(): string;
   install(options: { token: string; version: string }): Promise<Installation>;
+  prepare?(options: {
+    binary: string;
+    input: string;
+    locked: boolean;
+    offline: boolean;
+    workspace: string;
+  }): Preparation;
   run(options: {
     binary: string;
     input: string;
@@ -65,13 +83,37 @@ export type MainDependencies = {
   workflowUrl?(): string | undefined;
 };
 
+/* The Rootform home is a runner path. It is isolated per job so one workflow
+   can never observe another's dialect store, and it is exported for later
+   steps instead of being published: constitution VII keeps absolute runner
+   paths out of outputs, summaries, and artifacts. */
+function isolatedHome(): string {
+  return mkdtempSync(join(process.env.RUNNER_TEMP || tmpdir(), "rootform-home-"));
+}
+
+function defaultCacheClient(): CacheClient {
+  return {
+    restore: async (paths, primary, restore) => {
+      const cache = await import("@actions/cache");
+      return cache.restoreCache([...paths], primary, [...restore]);
+    },
+    save: async (paths, primary) => {
+      const cache = await import("@actions/cache");
+      await cache.saveCache([...paths], primary);
+    },
+  };
+}
+
 const defaultDependencies: MainDependencies = {
   artifactClient: () => new DefaultArtifactClient(),
+  cacheClient: defaultCacheClient,
   comment: upsertPullRequestComment,
   context: readGitHubContext,
   core,
   diff: runDiff,
+  home: isolatedHome,
   install: installRootform,
+  prepare: runPreparation,
   run: runAnalysis,
   workspace: () => resolve(process.env.GITHUB_WORKSPACE || process.cwd()),
   workflowUrl: readWorkflowUrl,
@@ -183,6 +225,8 @@ function reportOptions(options: {
   mode: Mode;
   policyExitCode: number;
   policyMarkdown: string;
+  preparation: Preparation;
+  lockPath?: string;
   version: string;
 }): ReportOptions {
   return {
@@ -199,6 +243,13 @@ function reportOptions(options: {
     mode: options.mode,
     policyExitCode: options.policyExitCode,
     policyMarkdown: options.policyMarkdown,
+    preparation: {
+      dialects: options.preparation.dialects,
+      lockCreated: options.preparation.lockWritten,
+      lockPath: options.lockPath,
+      resolutionMode: options.preparation.resolutionMode,
+      unsupportedProviders: options.preparation.unsupportedProviders,
+    },
     version: options.version,
     workflowUrl: options.context.workflowUrl,
   };
@@ -228,6 +279,59 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
     const currentPath = relativeOutput(workspace, inputPath);
     const outputName = actionCore.getInput("output-directory") || "rootform-results";
     const outputDirectory = containedOutput(workspace, outputName);
+
+    /* Preparation owns dialect resolution and must complete before any
+       analysis command runs, so every later command observes the same
+       resolved set. The CLI decides; this only orchestrates. */
+    const locked = actionCore.getBooleanInput("locked");
+    const offline = actionCore.getBooleanInput("offline");
+    const home = (dependencies.home ?? isolatedHome)();
+    actionCore.exportVariable?.("ROOTFORM_HOME", home);
+    process.env.ROOTFORM_HOME = home;
+
+    const projectRoot = mode === "source" ? inputPath : workspace;
+    const lockFile = join(projectRoot, LOCK_FILE);
+    const keys = cacheKeys({
+      lockPath: lockFile,
+      mode:
+        locked && offline ? "locked-offline" : locked ? "locked" : offline ? "offline" : "default",
+      platform: `${process.platform}-${process.arch}`,
+      runId: process.env.GITHUB_RUN_ID,
+      version: installation.version,
+    });
+    const cacheEnabled = actionCore.getBooleanInput("cache");
+    const cacheClient = cacheEnabled
+      ? (dependencies.cacheClient ?? defaultCacheClient)()
+      : undefined;
+    const cacheOutcome = cacheClient
+      ? await restoreDialectCache({ client: cacheClient, home, keys, warn: actionCore.warning })
+      : { restored: false };
+
+    /* A preparation failure is not a check result: it never publishes an
+       analysis exit code, and no analysis command runs after it. */
+    const preparation = (dependencies.prepare ?? runPreparation)({
+      binary: installation.binary,
+      input: ".",
+      locked,
+      offline,
+      workspace: projectRoot,
+    });
+    actionCore.setOutput("resolution-mode", preparation.resolutionMode);
+    actionCore.setOutput("lock-created", String(preparation.lockWritten));
+    const lockPath = existsSync(lockFile) ? relativeOutput(workspace, lockFile) : undefined;
+    if (lockPath) actionCore.setOutput("lock-path", lockPath);
+    if (preparation.lockWritten) actionCore.warning?.(GENERATED_LOCK_NOTICE);
+    for (const warning of preparation.warnings) actionCore.warning?.(warning);
+
+    if (cacheClient) {
+      await saveDialectCache({
+        client: cacheClient,
+        home,
+        keys,
+        outcome: cacheOutcome,
+        warn: actionCore.warning,
+      });
+    }
 
     commandOutput = "exit-code";
     const result = dependencies.run({
@@ -292,6 +396,14 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
     let artifactUrl: string | undefined;
     if (actionCore.getBooleanInput("upload-artifact")) {
       const name = actionCore.getInput("artifact-name") || "rootform";
+      /* A generated lock is evidence the caller must be able to retrieve, so
+         it is copied into the artifact directory. It is never written back
+         into the repository, staged, or committed. */
+      let lockEvidence: string | undefined;
+      if (preparation.lockWritten && existsSync(lockFile)) {
+        lockEvidence = join(outputDirectory, LOCK_FILE);
+        copyFileSync(lockFile, lockEvidence);
+      }
       const files = [
         result.paths.architecture,
         result.paths.html,
@@ -300,6 +412,7 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
         ...(diffResult?.paths.baselineArchitecture ? [diffResult.paths.baselineArchitecture] : []),
         ...(diffResult?.paths.baselineHtml ? [diffResult.paths.baselineHtml] : []),
         ...(diffResult ? [diffResult.paths.json, diffResult.paths.markdown] : []),
+        ...(lockEvidence ? [lockEvidence] : []),
       ];
       const artifact = await dependencies
         .artifactClient()
@@ -324,9 +437,11 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
         context: githubContext,
         currentPath,
         diffResult,
+        lockPath,
         mode,
         policyExitCode: result.exitCode,
         policyMarkdown,
+        preparation,
         version: installation.version,
       };
       let commentState: string;

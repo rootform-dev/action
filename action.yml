@@ -50,11 +50,29 @@ inputs:
     description: Optional same-repository pull request comment token
     required: false
     default: ""
+  locked:
+    description: Require and preserve the existing rootform.lock
+    required: false
+    default: "false"
+  offline:
+    description: Use only vendored, installed, and cached dialect data
+    required: false
+    default: "false"
+  cache:
+    description: Reuse verified immutable dialect payload between runs
+    required: false
+    default: "true"
 outputs:
   version:
     description: Exact installed Rootform version
   exit-code:
     description: Exact Rootform check exit code
+  resolution-mode:
+    description: Dialect resolution mode applied to this run
+  lock-path:
+    description: Workspace-relative rootform.lock path when the project has one
+  lock-created:
+    description: Whether this run generated rootform.lock
   architecture:
     description: Workspace-relative Architecture IR path
   html:

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { REPORT_MARKER, type ReportOptions, renderReport } from "./report.ts";
+import {
+  GENERATED_LOCK_MESSAGE,
+  REPORT_MARKER,
+  type ReportOptions,
+  renderReport,
+} from "./report.ts";
 
 const options: ReportOptions = {
   artifactUrl: "https://github.com/rootform-dev/action/actions/runs/7/artifacts/11",
@@ -80,5 +85,81 @@ describe("GitHub-native report", () => {
     expect(() => renderReport({ ...options, policyExitCode: 3 }, "summary")).toThrow(
       "unsupported policy exit code 3",
     );
+  });
+
+  test("renders preparation without runner paths", () => {
+    const runnerHome = "/home/runner/work/_temp/rootform-home-a1b2c3";
+    const committed = renderReport(
+      {
+        ...options,
+        preparation: {
+          dialects: [
+            { name: "aws", version: "0.1.0" },
+            { name: "core", version: "0.1.0" },
+          ],
+          lockCreated: false,
+          lockPath: "infra/rootform.lock",
+          resolutionMode: "locked-offline",
+          unsupportedProviders: [],
+        },
+      },
+      "summary",
+    );
+    expect(committed).toContain("<summary><strong>Dialect preparation</strong></summary>");
+    expect(committed).toContain("- Resolution mode: `locked-offline`");
+    expect(committed).toContain("- Dialects: `aws@0.1.0`, `core@0.1.0`");
+    expect(committed).toContain("- Project lock: Committed at `infra/rootform.lock`");
+    expect(committed).not.toContain(GENERATED_LOCK_MESSAGE);
+    expect(committed).toBe(
+      renderReport(
+        {
+          ...options,
+          preparation: {
+            dialects: [
+              { name: "aws", version: "0.1.0" },
+              { name: "core", version: "0.1.0" },
+            ],
+            lockCreated: false,
+            lockPath: "infra/rootform.lock",
+            resolutionMode: "locked-offline",
+            unsupportedProviders: [],
+          },
+        },
+        "summary",
+      ),
+    );
+
+    const generated = renderReport(
+      {
+        ...options,
+        preparation: {
+          dialects: [],
+          lockCreated: true,
+          lockPath: "rootform.lock",
+          resolutionMode: "default",
+          unsupportedProviders: ["registry.terraform.io/vancluever/acme"],
+        },
+      },
+      "comment",
+    );
+    expect(generated).toContain(`> [!IMPORTANT]\n> ${GENERATED_LOCK_MESSAGE}`);
+    expect(generated).toContain("- Dialects: None required");
+    expect(generated).toContain("- Project lock: Generated for this run");
+    expect(generated).toContain(
+      "- Providers without an official dialect: `registry.terraform.io/vancluever/acme`",
+    );
+
+    /* Preparation presentation carries dialect identity and lock state only: no
+       runner path, no environment value, no raw Terraform material, and no
+       credential can reach a GitHub surface through it. */
+    for (const rendered of [committed, generated]) {
+      expect(rendered).not.toContain(runnerHome);
+      expect(rendered).not.toContain("ROOTFORM_HOME");
+      expect(rendered).not.toContain("/home/runner");
+      expect(rendered).not.toContain("_temp");
+      expect(rendered).not.toMatch(/(?:^|[\s`(])\/[A-Za-z0-9._-]+\//u);
+      expect(rendered).not.toContain('resource "');
+      expect(rendered).not.toContain("ghp_");
+    }
   });
 });
