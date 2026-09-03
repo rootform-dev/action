@@ -20,10 +20,11 @@ Two properties therefore matter more than release convenience:
   hand, because a hand-chosen number encodes intent that reviewers cannot check.
 
 The repository already enforces Conventional Commits in `commit-msg` and in CI,
-so commit history is a reliable input. The repository publishes nothing yet: no
-`src/`, no `dist/`, no `action.yml`. It also stays at `0.1.0` until it becomes
-public, and an accidental `1.0.0` would be an unwanted compatibility promise
-that consumers could pin before the surface exists.
+so commit history is a reliable input. At decision time the repository
+published no `src/`, `dist/`, or `action.yml`. Release automation therefore
+needed an explicit `0.x` baseline so its first computed version could not
+default to an accidental `1.0.0` compatibility promise before the surface
+existed.
 
 ## Decision
 
@@ -61,8 +62,9 @@ from a checksum-verified release archive in CI and required by `bun run verify`.
   choice, release notes drift from history, and the agent policy already blocks
   release mutation from automation for good reason.
 - **`release-please`.** Rejected: it maintains a release pull request and
-  version files in the repository. Versions are frozen at `0.1.0` during
-  development, so a bot editing version fields adds noise without value.
+  version files in the repository even though Action distribution needs only
+  immutable Git references, so a bot editing version fields adds state without
+  value.
 - **Default major bump on breaking changes.** Rejected: it would publish
   `v1.0.0` from the first `feat!` commit, before any entrypoint exists.
 - **`@semantic-release/git` to commit version bumps.** Rejected: it requires a

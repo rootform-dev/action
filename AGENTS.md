@@ -142,8 +142,8 @@ unavailable, report the exact missing proof; do not substitute confidence.
 
 ## Versioning
 
-While this repository is pre-release, every version stays `0.1.0`. Published
-major tags are cut by the owner, never by an agent.
+Published versions and major tags are owner decisions. Automation follows the
+accepted release contract and never moves an existing tag.
 
 ## Definition of done
 
