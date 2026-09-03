@@ -264,6 +264,7 @@ async function main(): Promise<void> {
     ".github/dependabot.yml",
     ".github/pull_request_template.md",
     ".github/workflows/ci.yml",
+    ".github/workflows/published-release-integration.yml",
     ".github/workflows/release.yml",
     ".gitleaks.toml",
     ".releaserc.json",
