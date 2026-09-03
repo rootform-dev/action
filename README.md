@@ -6,7 +6,13 @@
 GitHub Actions integration for [Rootform](https://github.com/rootform-dev/rootform),
 the deterministic Terraform architecture compiler.
 
-## Usage
+## Release status
+
+Source is available for review before the first consumer Action release. No
+supported consumer tag exists yet. The examples below document the accepted
+surface and become runnable when the owner publishes `v1`.
+
+## Published usage contract
 
 Two entrypoints share one installer:
 

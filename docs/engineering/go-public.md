@@ -1,11 +1,11 @@
 # Going public
 
-This repository is built to be published. Everything automatable is already
-enforced by `bun run verify` and CI; what remains are the settings only a
-repository owner can change, plus the checks that need human judgment.
+This repository is built for public review. Everything automatable is enforced
+by `bun run verify` and CI; repository settings and checks requiring human
+judgment remain explicit here.
 
-Do the steps in order. Steps 1 and 2 happen before the repository becomes
-visible, because their failure modes are irreversible once history is public.
+For a first visibility change, do the steps in order. Repeat history and public
+surface review before every release.
 
 ## 1. Confirm history is publishable
 
@@ -36,14 +36,17 @@ this step unblocks the rest.
 
 ## 4. Protect `main` and `dev`
 
-`main` is what consumers' tags come from; `dev` is what merges into it. Both
-need a ruleset that requires:
+`main` is what consumer tags come from; `dev` is what merges into it. Both need
+a ruleset that requires:
 
-- a pull request with at least one approving review;
+- a pull request;
 - the `quality` status check to pass;
 - branches to be up to date before merging;
 - linear history, with squash merge as the only merge method;
 - no force push and no deletion.
+
+Require an independent approval when a reviewer other than the pull-request
+author is available; do not create a permanent single-maintainer deadlock.
 
 Do not add an exemption for automation. The release workflow creates tags and
 releases; it never pushes a commit into a protected branch, so it needs no
@@ -61,11 +64,11 @@ before it reaches history, which the local hooks cannot guarantee.
 
 ## 6. Reconsider the deferred scanners
 
-`docs/adr/001-release-automation.md` defers CodeQL, Scorecard,
-dependency-review, and zizmor because the repository has no application source
-and a private repository exposes no dependency graph. Both conditions change
-here: add them when `src/` lands, in a change that records why each one earns
-its runtime.
+`docs/adr/001-release-automation.md` deferred CodeQL, Scorecard,
+dependency-review, and zizmor because no application source existed at decision
+time. Once source and public dependency data exist, enable CodeQL for supported
+languages. Add other scanners separately only when their distinct signal earns
+their runtime and maintenance cost.
 
 ## What stays automated
 
