@@ -129,4 +129,13 @@ describe("CI product spec metadata", () => {
     expect(workflow).toContain("github.event_name == 'pull_request' && github.head_ref || ''");
     expect(workflow).not.toContain("github.head_ref || github.ref_name");
   });
+
+  test("published release integration proves anonymous public installation", async () => {
+    const workflow = await Bun.file(
+      join(repository, ".github/workflows/published-release-integration.yml"),
+    ).text();
+    expect(workflow).toContain("uses: ./setup");
+    expect(workflow).not.toContain("ROOTFORM_RELEASES_READ_TOKEN");
+    expect(workflow).not.toContain("github-token:");
+  });
 });

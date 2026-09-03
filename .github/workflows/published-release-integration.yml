@@ -32,7 +32,6 @@ jobs:
         uses: ./setup
         with:
           version: ${{ inputs.version }}
-          github-token: ${{ secrets.ROOTFORM_RELEASES_READ_TOKEN }}
 
       - name: Verify installed release identity
         shell: bash
