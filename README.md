@@ -20,13 +20,13 @@ Two entrypoints share one installer:
 # Integrated experience: install Rootform, analyze source, publish results
 - uses: rootform-dev/action@v1
   with:
-    version: 0.1.0
+    version: 0.1.1
     path: .
 
 # Installation only, for advanced usage
 - uses: rootform-dev/action/setup@v1
   with:
-    version: 0.1.0
+    version: 0.1.1
 ```
 
 Main entrypoint accepts `source` or `plan` mode. By default it writes
