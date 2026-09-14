@@ -36,46 +36,73 @@ lock, resolves providers, or acquires supplied Dialects.
 
 ### REQ-001 — Exact CLI preparation
 
-The Action SHALL run `rootform init <path> --format json --no-input` exactly
-once before analysis, map `locked` and `offline` to their same-named flags,
-and treat any non-zero exit as a preparation failure without fallback.
+- Acceptance: WHEN the main entrypoint prepares a project THE SYSTEM SHALL run
+  `rootform init` on the workspace path with `--format json --no-input`
+  exactly once before analysis, map `locked` and `offline` inputs to their
+  same-named CLI flags, and SHALL treat any non-zero exit as a preparation
+  failure without fallback.
+- Done when: `bun test src/preparation.test.ts -t "builds one exact
+  preparation command"` exits `0`.
+- Evidence: `src/preparation.ts`, `src/preparation.test.ts`
 
 ### REQ-002 — Machine envelope
 
-The Action SHALL accept only preparation envelope format `1`, `prepared: true`,
-bounded Dialect and Policy Pack unit arrays, non-negative downloaded bytes,
-and the CLI's closed `verified` or `acquired` status. It SHALL report those
-fields without deriving another Rootform decision.
+- Acceptance: WHEN the CLI returns an initialization envelope THE SYSTEM SHALL
+  accept only format version `1` with `prepared: true`, bounded Dialect and
+  Policy Pack unit arrays, non-negative downloaded bytes, and units carrying
+  only the closed `verified` or `acquired` status, and SHALL report those
+  fields without deriving another Rootform decision.
+- Done when: `bun test src/preparation.test.ts -t "reports exact prepared
+  external units without reinterpreting them"` exits `0`.
+- Evidence: `src/preparation.ts`, `src/preparation.test.ts`
 
 ### REQ-003 — Lock ownership
 
-Preparation SHALL never create, copy, upload, stage, commit, or claim to create
-`rootform.lock`. The Action SHALL expose `lock-path` only when a lock already
-exists. `locked` SHALL require that file through CLI behavior.
+- Acceptance: WHEN a project lock exists THE SYSTEM SHALL expose its
+  workspace-relative `lock-path`, and WHEN no lock exists THE SYSTEM SHALL
+  neither create, copy, upload, stage, commit, nor claim to generate
+  `rootform.lock`; `locked` SHALL require that file through CLI behavior.
+- Done when: `bun test src/main.test.ts -t "reports an existing lock without
+  uploading or mutating it"` exits `0`.
+- Evidence: `src/main.ts`, `src/main.test.ts`
 
 ### REQ-004 — Immutable external-package cache
 
-Optional cache SHALL contain only Rootform-home `dialects/` and
-`policy-packs/`. It SHALL exclude supplied semantics, temporary content,
-linked artifacts, and discovery state. Cache keys SHALL bind exact Rootform
-version, execution mode, platform, and lock digest when present. Cache restore
-never skips CLI verification.
+- Acceptance: WHEN cache is enabled THE SYSTEM SHALL persist only installed
+  Rootform-home `dialects/` and `policy-packs/` directories, SHALL exclude
+  supplied semantics, temporary content, linked artifacts, and discovery state,
+  SHALL bind cache keys to exact Rootform version, execution mode, platform,
+  and lock digest when present, and SHALL run preparation with CLI verification
+  after every restore.
+- Done when: `bun test src/cache.test.ts` exits `0`.
+- Evidence: `src/cache.ts`, `src/cache.test.ts`
 
 ### REQ-005 — Honest public surface and report
 
-Output `preparation-mode` SHALL replace `resolution-mode`; `lock-created` SHALL
-be removed. Reports SHALL show preparation mode, exact Dialects, exact Policy
-Packs, downloaded bytes, and existing lock path. They SHALL make no provider
-coverage or supplied-Dialect installation claim.
+- Acceptance: WHEN the main entrypoint completes THE SYSTEM SHALL expose
+  `preparation-mode` and remove `resolution-mode` and `lock-created`, and
+  SHALL report only preparation mode, exact Dialects, exact Policy Packs,
+  downloaded bytes, and the existing lock path without any provider coverage
+  or supplied-Dialect installation claim.
+- Done when: `bun test src/report.test.ts -t "renders preparation without
+  runner paths"` exits `0`.
+- Evidence: `src/main.ts`, `src/main.test.ts`, `src/report.ts`,
+  `src/report.test.ts`, `action.yml`
 
 ### REQ-006 — Isolation, credentials, and network
 
-Rootform home SHALL remain isolated under runner temporary storage and absent
-from outputs, reports, and artifacts. Preparation SHALL receive the existing
-credential-stripped CLI environment. Analysis commands SHALL remain offline;
-only explicit preparation may acquire exact OCI pins already present in lock.
+- Acceptance: WHEN the run prepares or analyzes a project THE SYSTEM SHALL keep
+  the Rootform home isolated under runner temporary storage and absent from
+  outputs, reports, and artifacts, SHALL pass the credential-stripped CLI
+  environment to preparation, and SHALL keep analysis commands offline while
+  only explicit preparation acquires exact OCI pins already present in lock.
+- Done when: `bun test src/network-boundary.test.ts` exits `0`.
+- Evidence: `src/network-boundary.test.ts`, `src/preparation.ts`
 
 ### REQ-007 — Complete proof
 
-Source tests, bundle-sync proof, static checks, foundation validation, and full
-repository gate SHALL pass before release.
+- Acceptance: WHEN change is proposed complete THE SYSTEM SHALL pass format,
+  type, unit, bundle-sync, action metadata, workflow, secret working-set, and
+  full-history checks.
+- Done when: `bun run verify` exits `0`.
+- Evidence: repository gate output
