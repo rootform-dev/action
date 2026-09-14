@@ -20,19 +20,16 @@ export type ReportOptions = {
   workflowUrl?: string;
 };
 
-/* Preparation presentation carries dialect identity and the caller-facing lock
-   state only. It never carries a runner path, an environment value, raw
-   Terraform material, or a credential. */
+/* Preparation presentation carries bounded external package identity and the
+   caller-facing lock path only. It never carries a package source, runner
+   path, environment value, raw Terraform material, or credential. */
 export type PreparationSummary = {
-  dialects: Array<{ name: string; version: string }>;
-  lockCreated: boolean;
+  downloadedBytes: number;
+  dialects: Array<{ name: string; status: "acquired" | "verified"; version: string }>;
   lockPath?: string;
-  resolutionMode: string;
-  unsupportedProviders: string[];
+  policyPacks: Array<{ name: string; status: "acquired" | "verified"; version: string }>;
+  preparationMode: string;
 };
-
-export const GENERATED_LOCK_MESSAGE =
-  "Rootform generated rootform.lock for this run. Commit this file to make future analyses reproducible.";
 
 export type ReportTarget = "comment" | "summary";
 
@@ -135,10 +132,6 @@ function report(
     ].join("\n"),
   );
 
-  if (options.preparation?.lockCreated) {
-    sections.push(`> [!IMPORTANT]\n> ${GENERATED_LOCK_MESSAGE}`);
-  }
-
   if (options.diffMarkdown !== undefined) {
     sections.push(
       inlineDiff
@@ -154,30 +147,23 @@ function report(
 
   if (options.preparation) {
     const preparation = options.preparation;
+    const units = (values: PreparationSummary["dialects"]): string =>
+      values.length === 0
+        ? "None selected"
+        : values
+            .map(({ name, status, version }) => `${inline(`${name}@${version}`)} (${status})`)
+            .join(", ");
     const rows = [
-      `- Resolution mode: ${inline(preparation.resolutionMode)}`,
-      `- Dialects: ${
-        preparation.dialects.length === 0
-          ? "None required"
-          : preparation.dialects.map(({ name, version }) => inline(`${name}@${version}`)).join(", ")
-      }`,
+      `- Preparation mode: ${inline(preparation.preparationMode)}`,
+      `- Dialects: ${units(preparation.dialects)}`,
+      `- Policy Packs: ${units(preparation.policyPacks)}`,
+      `- Downloaded bytes: ${preparation.downloadedBytes}`,
       `- Project lock: ${
-        preparation.lockCreated
-          ? "Generated for this run"
-          : preparation.lockPath
-            ? `Committed at ${inline(preparation.lockPath)}`
-            : "Not present"
+        preparation.lockPath ? `Present at ${inline(preparation.lockPath)}` : "Not present"
       }`,
-      ...(preparation.unsupportedProviders.length > 0
-        ? [
-            `- Providers without an official dialect: ${preparation.unsupportedProviders
-              .map((provider) => inline(provider))
-              .join(", ")}`,
-          ]
-        : []),
     ];
     sections.push(
-      `<details>\n<summary><strong>Dialect preparation</strong></summary>\n\n${rows.join(
+      `<details>\n<summary><strong>Dialect and Policy Pack preparation</strong></summary>\n\n${rows.join(
         "\n",
       )}\n\n</details>`,
     );

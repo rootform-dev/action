@@ -1,25 +1,36 @@
 import { describe, expect, test } from "bun:test";
 import {
   preparationCommand,
+  preparationMode,
   readPreparation,
-  resolutionMode,
   runPreparation,
 } from "./preparation.ts";
 import { RootformCommandError } from "./run.ts";
 
 const envelope = {
+  downloaded_bytes: 128,
   dialects: [
-    { name: "aws", version: "0.1.0" },
-    { name: "core", version: "0.1.0" },
+    {
+      kind: "dialect",
+      name: "acme",
+      source:
+        "registry.example/acme/rootform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      status: "acquired",
+      version: "0.1.0",
+    },
   ],
-  download_size: 0,
   format_version: "1",
-  incompatible_providers: [],
-  lock_written: false,
-  providers_detected: 1,
-  unsupported_providers: [],
-  warnings: [],
-};
+  policy_packs: [
+    {
+      kind: "policy-pack",
+      name: "baseline",
+      source: "local:policies/baseline",
+      status: "verified",
+      version: "0.1.0",
+    },
+  ],
+  prepared: true,
+} as const;
 
 function envelopeText(overrides: Record<string, unknown> = {}): string {
   return `${JSON.stringify({ ...envelope, ...overrides }, null, 2)}\n`;
@@ -50,13 +61,10 @@ describe("project preparation", () => {
       "--no-input",
     ]);
     expect(commands[0]?.cwd).toBe("/workspace/project");
-    expect(preparation.dialects).toEqual([
-      { name: "aws", version: "0.1.0" },
-      { name: "core", version: "0.1.0" },
-    ]);
-    expect(preparation.providersDetected).toBe(1);
-    expect(preparation.lockWritten).toBeFalse();
-    expect(preparation.resolutionMode).toBe("default");
+    expect(preparation.dialects).toEqual([...envelope.dialects]);
+    expect(preparation.policyPacks).toEqual([...envelope.policy_packs]);
+    expect(preparation.downloadedBytes).toBe(128);
+    expect(preparation.preparationMode).toBe("default");
   });
 
   test("maps execution modes to CLI flags", () => {
@@ -95,10 +103,10 @@ describe("project preparation", () => {
         expect(preparationCommand("rootform", ".", { locked, offline })).not.toContain("--upgrade");
       }
     }
-    expect(resolutionMode({ locked: false, offline: false })).toBe("default");
-    expect(resolutionMode({ locked: true, offline: false })).toBe("locked");
-    expect(resolutionMode({ locked: false, offline: true })).toBe("offline");
-    expect(resolutionMode({ locked: true, offline: true })).toBe("locked-offline");
+    expect(preparationMode({ locked: false, offline: false })).toBe("default");
+    expect(preparationMode({ locked: true, offline: false })).toBe("locked");
+    expect(preparationMode({ locked: false, offline: true })).toBe("offline");
+    expect(preparationMode({ locked: true, offline: true })).toBe("locked-offline");
   });
 
   test("stops on a failed preparation", () => {
@@ -110,12 +118,12 @@ describe("project preparation", () => {
         offline: false,
         runner: () => ({
           exitCode: 1,
-          stderr: "rootform: rootform.lock does not cover provider aws\n",
+          stderr: "rootform: dialect acme@0.1.0 is unavailable\n",
           stdout: "",
         }),
         workspace: "/workspace",
       }),
-    ).toThrow("rootform: rootform.lock does not cover provider aws");
+    ).toThrow("rootform: dialect acme@0.1.0 is unavailable");
 
     try {
       runPreparation({
@@ -134,7 +142,7 @@ describe("project preparation", () => {
     }
   });
 
-  test("reports a generated lock and CLI warnings without reinterpreting them", () => {
+  test("reports exact prepared external units without reinterpreting them", () => {
     const preparation = runPreparation({
       binary: "rootform",
       input: ".",
@@ -142,18 +150,14 @@ describe("project preparation", () => {
       offline: false,
       runner: () => ({
         exitCode: 0,
-        stderr: "rootform: warning: provider version compatibility is unverified\n",
-        stdout: envelopeText({
-          lock_written: true,
-          unsupported_providers: ["registry.terraform.io/vancluever/acme"],
-          warnings: ["provider version compatibility is unverified"],
-        }),
+        stderr: "",
+        stdout: envelopeText(),
       }),
       workspace: "/workspace",
     });
-    expect(preparation.lockWritten).toBeTrue();
-    expect(preparation.unsupportedProviders).toEqual(["registry.terraform.io/vancluever/acme"]);
-    expect(preparation.warnings).toEqual(["provider version compatibility is unverified"]);
+    expect(preparation.dialects).toEqual([...envelope.dialects]);
+    expect(preparation.policyPacks).toEqual([...envelope.policy_packs]);
+    expect(preparation.downloadedBytes).toBe(128);
   });
 
   test("rejects an envelope the CLI did not produce", () => {
@@ -163,17 +167,60 @@ describe("project preparation", () => {
     expect(() => readPreparation("[]", "default")).toThrow(
       "Rootform initialization envelope must be an object",
     );
-    expect(() => readPreparation(JSON.stringify({ dialects: [] }), "default")).toThrow(
-      "Rootform initialization envelope has no format version",
+    expect(() => readPreparation(JSON.stringify({ prepared: true }), "default")).toThrow(
+      "Rootform initialization envelope has unsupported format version",
     );
-    expect(() => readPreparation(envelopeText({ dialects: [{ name: "aws" }] }), "default")).toThrow(
-      "Rootform initialization dialects are invalid",
+    expect(() => readPreparation(envelopeText({ prepared: false }), "default")).toThrow(
+      "Rootform initialization did not prepare the selection",
     );
-    expect(() => readPreparation(envelopeText({ lock_written: "yes" }), "default")).toThrow(
-      "Rootform initialization lock state is invalid",
+    expect(() => readPreparation(envelopeText({ providers_detected: 1 }), "default")).toThrow(
+      "Rootform initialization envelope has unknown fields",
     );
-    expect(() => readPreparation(envelopeText({ warnings: [1] }), "default")).toThrow(
-      "Rootform initialization warnings is invalid",
+    expect(() => readPreparation(envelopeText({ extensions: [] }), "default")).toThrow(
+      "Rootform initialization envelope has unknown fields",
     );
+    expect(() =>
+      readPreparation(envelopeText({ dialects: [{ name: "acme" }] }), "default"),
+    ).toThrow("Rootform initialization dialects are invalid");
+    expect(() =>
+      readPreparation(
+        envelopeText({
+          dialects: [{ ...envelope.dialects[0], legacy: true }],
+        }),
+        "default",
+      ),
+    ).toThrow("Rootform initialization dialects are invalid");
+    expect(() =>
+      readPreparation(
+        envelopeText({
+          policy_packs: [
+            {
+              kind: "policy-pack",
+              name: "baseline",
+              source: "local:baseline",
+              status: "unknown",
+              version: "0.1.0",
+            },
+          ],
+        }),
+        "default",
+      ),
+    ).toThrow("Rootform initialization Policy Packs are invalid");
+    expect(() => readPreparation(envelopeText({ downloaded_bytes: -1 }), "default")).toThrow(
+      "Rootform initialization downloaded byte count is invalid",
+    );
+    expect(() =>
+      readPreparation(
+        envelopeText({ dialects: [envelope.dialects[0], envelope.dialects[0]] }),
+        "default",
+      ),
+    ).toThrow("Rootform initialization dialects are not canonical");
+    expect(
+      readPreparation(envelopeText({ dialects: undefined, policy_packs: undefined }), "default"),
+    ).toMatchObject({
+      downloadedBytes: 128,
+      dialects: [],
+      policyPacks: [],
+    });
   });
 });

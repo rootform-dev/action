@@ -1,5 +1,5 @@
 name: Rootform
-description: Install Rootform, analyze Terraform or a plan, and publish verified results
+description: Install Rootform, analyze Terraform or a plan, and report verified results
 author: Rootform
 inputs:
   version:
@@ -55,11 +55,11 @@ inputs:
     required: false
     default: "false"
   offline:
-    description: Use only vendored, installed, and cached dialect data
+    description: Use only local or installed Dialects and Policy Packs
     required: false
     default: "false"
   cache:
-    description: Reuse verified immutable dialect payload between runs
+    description: Reuse verified Dialects and Policy Pack payload between runs
     required: false
     default: "true"
 outputs:
@@ -67,12 +67,10 @@ outputs:
     description: Exact installed Rootform version
   exit-code:
     description: Exact Rootform check exit code
-  resolution-mode:
-    description: Dialect resolution mode applied to this run
+  preparation-mode:
+    description: Dialect and Policy Pack preparation mode applied to this run
   lock-path:
     description: Workspace-relative rootform.lock path when the project has one
-  lock-created:
-    description: Whether this run generated rootform.lock
   architecture:
     description: Workspace-relative Architecture IR path
   html:

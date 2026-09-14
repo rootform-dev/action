@@ -39,7 +39,7 @@ test("setup and main entrypoints import the one verified installer", async () =>
   expect(Object.fromEntries(outputs)).toEqual({ sha256: "a".repeat(64), version: "1.2.3" });
 });
 
-test("setup never prepares dialects", async () => {
+test("setup never prepares external packages", async () => {
   const sourceDirectory = import.meta.dir;
   const setupSource = await Bun.file(`${sourceDirectory}/setup.ts`).text();
 
@@ -51,8 +51,8 @@ test("setup never prepares dialects", async () => {
   }
   for (const symbol of [
     "runPreparation",
-    "restoreDialectCache",
-    "saveDialectCache",
+    "restoreDependencyCache",
+    "saveDependencyCache",
     "ROOTFORM_HOME",
   ]) {
     expect(setupSource).not.toContain(symbol);
@@ -64,10 +64,10 @@ test("setup never prepares dialects", async () => {
     /* Markers unique to preparation and caching. Generic tokens are avoided
        because bundled dependencies legitimately contain them. */
     for (const marker of [
-      "rootform-dialects-v1",
+      "rootform-external-packages-v1",
       "ROOTFORM_HOME",
       "Rootform initialization returned no machine envelope",
-      "Rootform generated rootform.lock for this run",
+      "Rootform dependency cache could not be restored",
     ]) {
       expect(bundled).not.toContain(marker);
     }
@@ -83,12 +83,12 @@ test("setup never prepares dialects", async () => {
     },
     install: async (options) => {
       installArguments = options;
-      // A dialect store would exist only if setup prepared one.
+      // External package stores would exist only if setup prepared them.
       expect(existsSync(join(workspace, ".rootform"))).toBeFalse();
       return { binary: "rootform", sha256: "b".repeat(64), version: "0.1.0" };
     },
   });
   expect(installArguments).toEqual({ token: "", version: "0.1.0" });
-  // Setup publishes installation identity only: no resolution mode, no lock.
+  // Setup publishes installation identity only: no preparation mode, no lock.
   expect([...outputs.keys()].sort()).toEqual(["sha256", "version"]);
 });

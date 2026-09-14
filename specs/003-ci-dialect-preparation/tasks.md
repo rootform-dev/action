@@ -1,5 +1,7 @@
 # SPEC-003 tasks
 
+> Superseded by SPEC-004 on 2026-09-14. Retained as historical evidence only.
+
 ## T001 — Preparation command and envelope
 
 - Status: Completed

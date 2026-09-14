@@ -8,6 +8,8 @@
   and CI gating)
 - Amendment approval: @soulbah — 2026-08-31 (Action consumes published
   Rootform releases only and rejects drafts regardless of authentication)
+- Amendment approval: @soulbah — 2026-09-14 (SPEC-004 release-set preparation
+  replaces separately installed supplied Dialects and narrows network boundary)
 - Created: 2026-08-30
 - Amended: 2026-08-31
 - Related ADR: ADR-002
@@ -35,8 +37,9 @@ documented CLI exit status.
 
 - Parsing Terraform, plans, Architecture IR, policy JSON, SARIF, or HTML inside
   Action to derive semantic meaning.
-- Diff/change gating, PR comments, check runs, annotations, autofix, caching
-  dialects, installing dialects, or fetching provider data.
+- Diff/change gating, PR comments, check runs, annotations, autofix, or
+  selecting supplied semantics. Later accepted specs own reporting and exact
+  external-package preparation.
 - Marketplace publication, public release, moving major tags, Homebrew, package
   publication, or repository visibility change.
 - Supporting GHES before official artifact client supports it.
@@ -96,11 +99,12 @@ documented CLI exit status.
 - Done when: `bun test src/main.test.ts` exits `0`.
 - Evidence: `src/main.ts`, `src/main.test.ts`
 
-### REQ-007 — Runtime is offline after installation
+### REQ-007 — Analysis is offline after explicit preparation
 
-- Acceptance: WHEN binary installation completes THE SYSTEM SHALL perform no
-  further network operation except GitHub artifact upload explicitly enabled by
-  caller.
+- Acceptance: WHEN explicit project preparation completes THE SYSTEM SHALL
+  perform no further network operation except GitHub reporting or artifact
+  upload explicitly enabled by caller. SPEC-004 permits preparation itself to
+  acquire only immutable OCI identities already selected by project lock.
 - Done when: `bun test src/network-boundary.test.ts` exits `0`.
 - Evidence: `src/install.ts`, `src/main.ts`, `src/network-boundary.test.ts`
 

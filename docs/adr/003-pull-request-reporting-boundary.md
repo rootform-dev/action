@@ -87,7 +87,8 @@ parser.
 
 Normal snapshot callers remain unchanged. Opt-in workflows add
 `pull-requests: write` and pass `${{ github.token }}` through dedicated input.
-Repositories must supply exact dialects and exact base/current checkout paths.
+Repositories must supply exact external selections and exact base/current
+checkout paths. Supplied semantics come from installed release set.
 
 Comments stay current instead of accumulating. Large diffs remain complete in
 artifact while PR surface states why inline content is absent. Fork contributors

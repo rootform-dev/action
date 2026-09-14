@@ -1,10 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  GENERATED_LOCK_MESSAGE,
-  REPORT_MARKER,
-  type ReportOptions,
-  renderReport,
-} from "./report.ts";
+import { REPORT_MARKER, type ReportOptions, renderReport } from "./report.ts";
 
 const options: ReportOptions = {
   artifactUrl: "https://github.com/rootform-dev/action/actions/runs/7/artifacts/11",
@@ -89,71 +84,66 @@ describe("GitHub-native report", () => {
 
   test("renders preparation without runner paths", () => {
     const runnerHome = "/home/runner/work/_temp/rootform-home-a1b2c3";
-    const committed = renderReport(
+    const prepared = renderReport(
       {
         ...options,
         preparation: {
-          dialects: [
-            { name: "aws", version: "0.1.0" },
-            { name: "core", version: "0.1.0" },
-          ],
-          lockCreated: false,
+          downloadedBytes: 128,
+          dialects: [{ name: "acme", status: "acquired", version: "0.1.0" }],
           lockPath: "infra/rootform.lock",
-          resolutionMode: "locked-offline",
-          unsupportedProviders: [],
+          policyPacks: [{ name: "baseline", status: "verified", version: "0.1.0" }],
+          preparationMode: "locked-offline",
         },
       },
       "summary",
     );
-    expect(committed).toContain("<summary><strong>Dialect preparation</strong></summary>");
-    expect(committed).toContain("- Resolution mode: `locked-offline`");
-    expect(committed).toContain("- Dialects: `aws@0.1.0`, `core@0.1.0`");
-    expect(committed).toContain("- Project lock: Committed at `infra/rootform.lock`");
-    expect(committed).not.toContain(GENERATED_LOCK_MESSAGE);
-    expect(committed).toBe(
+    expect(prepared).toContain(
+      "<summary><strong>Dialect and Policy Pack preparation</strong></summary>",
+    );
+    expect(prepared).toContain("- Preparation mode: `locked-offline`");
+    expect(prepared).toContain("- Dialects: `acme@0.1.0` (acquired)");
+    expect(prepared).toContain("- Policy Packs: `baseline@0.1.0` (verified)");
+    expect(prepared).toContain("- Downloaded bytes: 128");
+    expect(prepared).toContain("- Project lock: Present at `infra/rootform.lock`");
+    expect(prepared).toBe(
       renderReport(
         {
           ...options,
           preparation: {
-            dialects: [
-              { name: "aws", version: "0.1.0" },
-              { name: "core", version: "0.1.0" },
-            ],
-            lockCreated: false,
+            downloadedBytes: 128,
+            dialects: [{ name: "acme", status: "acquired", version: "0.1.0" }],
             lockPath: "infra/rootform.lock",
-            resolutionMode: "locked-offline",
-            unsupportedProviders: [],
+            policyPacks: [{ name: "baseline", status: "verified", version: "0.1.0" }],
+            preparationMode: "locked-offline",
           },
         },
         "summary",
       ),
     );
 
-    const generated = renderReport(
+    const empty = renderReport(
       {
         ...options,
         preparation: {
+          downloadedBytes: 0,
           dialects: [],
-          lockCreated: true,
-          lockPath: "rootform.lock",
-          resolutionMode: "default",
-          unsupportedProviders: ["registry.terraform.io/vancluever/acme"],
+          policyPacks: [],
+          preparationMode: "offline",
         },
       },
       "comment",
     );
-    expect(generated).toContain(`> [!IMPORTANT]\n> ${GENERATED_LOCK_MESSAGE}`);
-    expect(generated).toContain("- Dialects: None required");
-    expect(generated).toContain("- Project lock: Generated for this run");
-    expect(generated).toContain(
-      "- Providers without an official dialect: `registry.terraform.io/vancluever/acme`",
-    );
+    expect(empty).toContain("- Dialects: None selected");
+    expect(empty).toContain("- Policy Packs: None selected");
+    expect(empty).toContain("- Downloaded bytes: 0");
+    expect(empty).toContain("- Project lock: Not present");
 
-    /* Preparation presentation carries dialect identity and lock state only: no
-       runner path, no environment value, no raw Terraform material, and no
-       credential can reach a GitHub surface through it. */
-    for (const rendered of [committed, generated]) {
+    /* Preparation presentation carries external package identity and lock path
+       only: no source, runner path, environment, Terraform, or credential. */
+    for (const rendered of [prepared, empty]) {
       expect(rendered).not.toContain(runnerHome);
+      expect(rendered).not.toContain("registry.example/acme");
+      expect(rendered).not.toContain("local:policies/baseline");
       expect(rendered).not.toContain("ROOTFORM_HOME");
       expect(rendered).not.toContain("/home/runner");
       expect(rendered).not.toContain("_temp");
