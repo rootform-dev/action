@@ -7,7 +7,7 @@ import { type MainDependencies, main } from "./main.ts";
 import { runPreparation } from "./preparation.ts";
 import { resultPaths } from "./run.ts";
 
-test("main performs no network operation after injected installation", async () => {
+test("analysis performs no JavaScript network operation after preparation", async () => {
   const workspace = mkdtempSync(join(tmpdir(), "rootform-network-test-"));
   const originalFetch = globalThis.fetch;
   let networkCalls = 0;
@@ -19,6 +19,8 @@ test("main performs no network operation after injected installation", async () 
     },
   });
   let installed = false;
+  let prepared = false;
+  let analyzed = false;
   const dependencies: MainDependencies = {
     artifactClient: () => ({
       uploadArtifact: async () => {
@@ -36,8 +38,20 @@ test("main performs no network operation after injected installation", async () 
       installed = true;
       return { binary: "rootform", sha256: "a".repeat(64), version: "1.2.3" };
     },
+    prepare: () => {
+      expect(installed).toBeTrue();
+      prepared = true;
+      return {
+        downloadedBytes: 0,
+        dialects: [],
+        policyPacks: [],
+        preparationMode: "default",
+      };
+    },
     run: (options) => {
       expect(installed).toBeTrue();
+      expect(prepared).toBeTrue();
+      analyzed = true;
       return { exitCode: 3, paths: resultPaths(options.outputDirectory) };
     },
     workspace: () => workspace,
@@ -46,6 +60,7 @@ test("main performs no network operation after injected installation", async () 
   try {
     await main(dependencies);
     expect(networkCalls).toBe(0);
+    expect(analyzed).toBeTrue();
   } finally {
     Object.defineProperty(globalThis, "fetch", { configurable: true, value: originalFetch });
     rmSync(workspace, { force: true, recursive: true });
@@ -112,7 +127,7 @@ test("keeps credentials out of preparation", () => {
 
   /* The stripped environment is proven against a real child process, not only
      against the helper: preparation must reach the CLI with no credential even
-     though it is the one command allowed to acquire dialects. */
+     though it is the one command allowed to acquire external packages. */
   const workspace = mkdtempSync(join(tmpdir(), "rootform-preparation-env-"));
   const releaseToken = "release-secret-value";
   const pullRequestToken = "pull-request-secret-value";
@@ -124,8 +139,8 @@ test("keeps credentials out of preparation", () => {
     [
       "#!/bin/sh",
       `env > "${captured}"`,
-      'printf \'{"format_version":"1","dialects":[],"lock_written":false,',
-      '"providers_detected":0,"unsupported_providers":[],"warnings":[]}\\n\'',
+      'printf \'{"dialects":[],"downloaded_bytes":0,"format_version":"1",',
+      '"policy_packs":[],"prepared":true}\\n\'',
       "",
     ].join("\n"),
   );
@@ -147,7 +162,12 @@ test("keeps credentials out of preparation", () => {
       offline: false,
       workspace,
     });
-    expect(preparation.providersDetected).toBe(0);
+    expect(preparation).toMatchObject({
+      downloadedBytes: 0,
+      dialects: [],
+      policyPacks: [],
+      preparationMode: "default",
+    });
 
     const contents = readFileSync(captured, "utf8");
     expect(contents.length).toBeGreaterThan(0);

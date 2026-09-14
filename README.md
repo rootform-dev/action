@@ -12,21 +12,21 @@ Source is available for review before the first consumer Action release. No
 supported consumer tag exists yet. The examples below document the accepted
 surface and become runnable when the owner publishes `v1`.
 
-## Published usage contract
+## Target usage contract
 
 Two entrypoints share one installer:
 
 ```yaml
-# Integrated experience: install Rootform, analyze source, publish results
+# Integrated experience: install Rootform, analyze source, report results
 - uses: rootform-dev/action@v1
   with:
-    version: 0.1.1
+    version: 0.1.0
     path: .
 
 # Installation only, for advanced usage
 - uses: rootform-dev/action/setup@v1
   with:
-    version: 0.1.1
+    version: 0.1.0
 ```
 
 Main entrypoint accepts `source` or `plan` mode. By default it writes
@@ -35,55 +35,54 @@ uploads only four named machine/render files; and appends exact CLI policy
 Markdown to Job Summary. It never parses artifacts to invent semantic or
 policy conclusions.
 
-## Dialect preparation
+## Dialect and Policy Pack preparation
 
-Before analyzing anything, the main entrypoint prepares the project once by
-running the Rootform CLI initialization command. That single command resolves
-providers, selects dialects, acquires what is missing, and writes
-`rootform.lock`. The Action reports what the CLI said; it never resolves,
-downloads, or locks anything itself.
+Before analysis, main entrypoint runs one non-interactive Rootform initialization
+command. Supplied RF Vocabulary and Dialects already live inside installed
+release set. Initialization verifies or acquires only exact external Dialects
+and Policy Pack sources selected by existing `rootform.lock`.
+Action reports CLI envelope; it never parses Terraform, selects semantics, or
+writes lock itself.
 
 ```yaml
 - uses: rootform-dev/action@v1
   with:
     path: infra
-    locked: true      # require and preserve the existing rootform.lock
-    offline: true     # use only vendored, installed, and cached dialect data
+    locked: true      # require and preserve existing rootform.lock
+    offline: true     # use only verified local or vendored external packages
 ```
 
 `locked` and `offline` are independent, and they map to the CLI's own flags:
 
 | `locked` | `offline` | Behavior |
 | --- | --- | --- |
-| `false` | `false` | Resolve normally and write `rootform.lock` when needed |
-| `true` | `false` | Require an existing lock; still fetch exactly what it pins |
-| `false` | `true` | Resolve without any network access |
-| `true` | `true` | Fully frozen: existing lock, no network |
+| `false` | `false` | Verify existing selections; acquire exact missing OCI pins when selected |
+| `true` | `false` | Require valid lock and preserve its exact selections |
+| `false` | `true` | Verify selected local content without network |
+| `true` | `true` | Require valid lock and all selected content locally |
 
 Preparation is always non-interactive, so a job can never wait for a prompt.
 
-A run in a repository without a lock completes and reports the generated file
-through `lock-created` and `lock-path`, includes it in the uploaded artifact,
-and states in the Job Summary that it should be committed. The Action never
-stages, commits, or pushes it.
+A project using only supplied semantics needs no lock. Missing lock means empty
+external selection unless `locked` is enabled, in which case CLI rejects it.
+`lock-path` is exposed only when caller already provides a lock. Lock is never
+created, copied, uploaded, staged, committed, or pushed by Action.
 
 The Rootform home is created per job under the runner temporary directory and
 exported as `ROOTFORM_HOME` so later steps in the same job reuse it. Its
 absolute path is never published as an output, in the Job Summary, or in an
 artifact.
 
-`cache` defaults to `true` and reuses verified immutable dialect payload
-between runs: installed dialects and content-addressed blobs only. The official
-index is never cached, because it is mutable selection state and sharing it
-between two revisions of a pull request would let one revision decide what the
-other resolves. A restored entry is never authoritative — preparation still runs
-and the CLI re-verifies every dialect by digest, so a cache miss, a cache error,
-and a poisoned entry are all equivalent to a slower run.
+`cache` defaults to `true` and reuses only verified installed Dialects and
+Policy Pack source payloads. Supplied semantics, linked artifacts, temporary
+content, and discovery state never enter Action cache. Restored content is not
+authoritative: preparation always runs and CLI verifies every selected package,
+so cache miss or failure changes speed only.
 
 A failed preparation stops the job with the CLI diagnostic, runs no analysis
 command, and leaves the project lock untouched.
 
-The `setup` entrypoint installs and verifies a CLI. It never prepares dialects.
+`setup` installs and verifies CLI only. It never prepares external packages.
 
 ## Pull request architecture review
 

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -12,14 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { diffPaths } from "./diff.ts";
-import {
-  containedInput,
-  containedOutput,
-  GENERATED_LOCK_NOTICE,
-  LOCK_FILE,
-  type MainDependencies,
-  main,
-} from "./main.ts";
+import { containedInput, containedOutput, LOCK_FILE, type MainDependencies, main } from "./main.ts";
 import type { Preparation } from "./preparation.ts";
 import { REPORT_MARKER } from "./report.ts";
 import { RootformCommandError, resultPaths } from "./run.ts";
@@ -73,12 +65,10 @@ function fakeCore(
 
 function fakePreparation(overrides: Partial<Preparation> = {}): Preparation {
   return {
-    dialects: [{ name: "aws", version: "0.1.0" }],
-    lockWritten: false,
-    providersDetected: 1,
-    resolutionMode: "default",
-    unsupportedProviders: [],
-    warnings: [],
+    downloadedBytes: 0,
+    dialects: [],
+    policyPacks: [],
+    preparationMode: "default",
     ...overrides,
   };
 }
@@ -138,9 +128,8 @@ describe("main Action entrypoint", () => {
         "artifact-url": "https://example.invalid/artifact/17",
         "exit-code": "0",
         html: "results/architecture.html",
-        "lock-created": "false",
         "policy-json": "results/policy.json",
-        "resolution-mode": "default",
+        "preparation-mode": "default",
         sarif: "results/policy.sarif",
         version: "1.2.3",
       });
@@ -189,8 +178,7 @@ describe("main Action entrypoint", () => {
       expect(state.outputs).toEqual(
         new Map([
           ["version", "1.2.3"],
-          ["resolution-mode", "default"],
-          ["lock-created", "false"],
+          ["preparation-mode", "default"],
           ["exit-code", "3"],
         ]),
       );
@@ -343,9 +331,8 @@ describe("main Action entrypoint", () => {
         "diff-markdown": "results/architecture-diff.md",
         "exit-code": "0",
         html: "results/architecture.html",
-        "lock-created": "false",
         "policy-json": "results/policy.json",
-        "resolution-mode": "default",
+        "preparation-mode": "default",
         sarif: "results/policy.sarif",
         version: "0.1.0-dev.2",
       });
@@ -457,7 +444,7 @@ describe("main Action entrypoint", () => {
       expect(exported).toBeString();
       const home = exported as string;
       // The home is created under the runner temporary directory so one job can
-      // never observe another job's dialect store.
+      // never observe another job's external package store.
       expect(home).toStartWith(`${runnerTemp}/`);
       expect(existsSync(home)).toBeTrue();
       // Preparation observes the isolated home rather than the ambient one.
@@ -482,26 +469,16 @@ describe("main Action entrypoint", () => {
     }
   });
 
-  test("surfaces a generated lock without committing it", async () => {
+  test("reports an existing lock without uploading or mutating it", async () => {
     const workspace = mkdtempSync(join(tmpdir(), "rootform-main-lock-test-"));
     const home = runnerTemporary();
     const project = join(workspace, "infra");
     mkdirSync(project);
     writeFileSync(join(project, "main.tf"), 'provider "aws" {}\n');
-    const git = (...args: string[]) =>
-      spawnSync("git", args, { cwd: workspace, encoding: "utf8", stdio: "pipe" });
-    git("init", "--quiet", "--initial-branch", "work");
-    git("add", "--all");
-    git(
-      "-c",
-      "user.email=t@example.invalid",
-      "-c",
-      "user.name=Test",
-      "commit",
-      "--quiet",
-      "-m",
-      "seed",
-    );
+    const lockContents =
+      '{"format_version":"1","dialects":[],"policy_packs":[],"excluded_owners":[],"replacements":[]}\n';
+    const lockPath = join(project, LOCK_FILE);
+    writeFileSync(lockPath, lockContents);
 
     const state = fakeCore({
       booleans: { "upload-artifact": true },
@@ -521,9 +498,9 @@ describe("main Action entrypoint", () => {
         home: () => home,
         install: async () => ({ binary: "rootform", sha256: "a".repeat(64), version: "0.1.0" }),
         prepare: (options) => {
-          // The CLI owns lock creation; the Action only observes the result.
-          writeFileSync(join(options.workspace, LOCK_FILE), '{"format_version":"1"}\n');
-          return fakePreparation({ lockWritten: true });
+          expect(options.workspace).toBe(project);
+          expect(readFileSync(lockPath, "utf8")).toBe(lockContents);
+          return fakePreparation();
         },
         run: (options) => {
           mkdirSync(options.outputDirectory);
@@ -535,23 +512,16 @@ describe("main Action entrypoint", () => {
       });
 
       expect(state.failures).toEqual([]);
-      expect(state.outputs.get("lock-created")).toBe("true");
       expect(state.outputs.get("lock-path")).toBe("infra/rootform.lock");
-      expect(state.warnings).toContain(GENERATED_LOCK_NOTICE);
+      expect(state.outputs.get("preparation-mode")).toBe("default");
+      expect(state.outputs.has("lock-created")).toBeFalse();
+      expect(state.outputs.has("resolution-mode")).toBeFalse();
 
-      // The generated lock travels as artifact evidence, copied into the result
-      // directory rather than uploaded from the project tree.
-      const lockEvidence = join(workspace, "results", LOCK_FILE);
+      // Lock belongs to caller project. Action reports relative path but never
+      // copies or uploads lock as generated evidence.
       expect(uploads).toHaveLength(1);
-      expect(uploads[0]?.files).toContain(lockEvidence);
-      expect(readFileSync(lockEvidence, "utf8")).toBe('{"format_version":"1"}\n');
-
-      // The repository keeps the lock untracked: nothing stages, commits, or
-      // pushes it on the caller's behalf.
-      const status = git("status", "--porcelain").stdout;
-      expect(status).toContain("?? infra/rootform.lock");
-      expect(status).not.toContain("A  infra/rootform.lock");
-      expect(git("log", "--oneline").stdout.trim().split("\n")).toHaveLength(1);
+      expect(uploads[0]?.files.some((file) => file.endsWith(LOCK_FILE))).toBeFalse();
+      expect(readFileSync(lockPath, "utf8")).toBe(lockContents);
     } finally {
       rmSync(home, { force: true, recursive: true });
       rmSync(workspace, { force: true, recursive: true });

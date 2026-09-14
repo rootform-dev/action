@@ -1,9 +1,14 @@
-import { copyFileSync, existsSync, lstatSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { DefaultArtifactClient } from "@actions/artifact";
 import * as core from "@actions/core";
-import { type CacheClient, cacheKeys, restoreDialectCache, saveDialectCache } from "./cache.ts";
+import {
+  type CacheClient,
+  cacheKeys,
+  restoreDependencyCache,
+  saveDependencyCache,
+} from "./cache.ts";
 import { type DiffResult, runDiff } from "./diff.ts";
 import { type Installation, installRootform } from "./install.ts";
 import { type Preparation, runPreparation } from "./preparation.ts";
@@ -26,9 +31,6 @@ import {
 type ArtifactResult = { artifactUrl?: string; id?: number };
 
 export const LOCK_FILE = "rootform.lock";
-
-export const GENERATED_LOCK_NOTICE =
-  "Rootform generated rootform.lock for this run. Commit this file to make future analyses reproducible.";
 
 export type MainDependencies = {
   artifactClient(): {
@@ -84,7 +86,7 @@ export type MainDependencies = {
 };
 
 /* The Rootform home is a runner path. It is isolated per job so one workflow
-   can never observe another's dialect store, and it is exported for later
+   can never observe another's external package store, and it is exported for later
    steps instead of being published: constitution VII keeps absolute runner
    paths out of outputs, summaries, and artifacts. */
 function isolatedHome(): string {
@@ -244,11 +246,11 @@ function reportOptions(options: {
     policyExitCode: options.policyExitCode,
     policyMarkdown: options.policyMarkdown,
     preparation: {
+      downloadedBytes: options.preparation.downloadedBytes,
       dialects: options.preparation.dialects,
-      lockCreated: options.preparation.lockWritten,
       lockPath: options.lockPath,
-      resolutionMode: options.preparation.resolutionMode,
-      unsupportedProviders: options.preparation.unsupportedProviders,
+      policyPacks: options.preparation.policyPacks,
+      preparationMode: options.preparation.preparationMode,
     },
     version: options.version,
     workflowUrl: options.context.workflowUrl,
@@ -280,9 +282,8 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
     const outputName = actionCore.getInput("output-directory") || "rootform-results";
     const outputDirectory = containedOutput(workspace, outputName);
 
-    /* Preparation owns dialect resolution and must complete before any
-       analysis command runs, so every later command observes the same
-       resolved set. The CLI decides; this only orchestrates. */
+    /* Explicit preparation verifies exact non-embedded lock selections before
+       analysis. Supplied semantics stay inside the installed binary. */
     const locked = actionCore.getBooleanInput("locked");
     const offline = actionCore.getBooleanInput("offline");
     const home = (dependencies.home ?? isolatedHome)();
@@ -304,7 +305,12 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
       ? (dependencies.cacheClient ?? defaultCacheClient)()
       : undefined;
     const cacheOutcome = cacheClient
-      ? await restoreDialectCache({ client: cacheClient, home, keys, warn: actionCore.warning })
+      ? await restoreDependencyCache({
+          client: cacheClient,
+          home,
+          keys,
+          warn: actionCore.warning,
+        })
       : { restored: false };
 
     /* A preparation failure is not a check result: it never publishes an
@@ -316,15 +322,12 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
       offline,
       workspace: projectRoot,
     });
-    actionCore.setOutput("resolution-mode", preparation.resolutionMode);
-    actionCore.setOutput("lock-created", String(preparation.lockWritten));
+    actionCore.setOutput("preparation-mode", preparation.preparationMode);
     const lockPath = existsSync(lockFile) ? relativeOutput(workspace, lockFile) : undefined;
     if (lockPath) actionCore.setOutput("lock-path", lockPath);
-    if (preparation.lockWritten) actionCore.warning?.(GENERATED_LOCK_NOTICE);
-    for (const warning of preparation.warnings) actionCore.warning?.(warning);
 
     if (cacheClient) {
-      await saveDialectCache({
+      await saveDependencyCache({
         client: cacheClient,
         home,
         keys,
@@ -396,14 +399,6 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
     let artifactUrl: string | undefined;
     if (actionCore.getBooleanInput("upload-artifact")) {
       const name = actionCore.getInput("artifact-name") || "rootform";
-      /* A generated lock is evidence the caller must be able to retrieve, so
-         it is copied into the artifact directory. It is never written back
-         into the repository, staged, or committed. */
-      let lockEvidence: string | undefined;
-      if (preparation.lockWritten && existsSync(lockFile)) {
-        lockEvidence = join(outputDirectory, LOCK_FILE);
-        copyFileSync(lockFile, lockEvidence);
-      }
       const files = [
         result.paths.architecture,
         result.paths.html,
@@ -412,7 +407,6 @@ export async function main(dependencies: MainDependencies = defaultDependencies)
         ...(diffResult?.paths.baselineArchitecture ? [diffResult.paths.baselineArchitecture] : []),
         ...(diffResult?.paths.baselineHtml ? [diffResult.paths.baselineHtml] : []),
         ...(diffResult ? [diffResult.paths.json, diffResult.paths.markdown] : []),
-        ...(lockEvidence ? [lockEvidence] : []),
       ];
       const artifact = await dependencies
         .artifactClient()

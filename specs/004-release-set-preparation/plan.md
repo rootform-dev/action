@@ -14,4 +14,3 @@
 - Existing installer, analysis, diff, and comment paths stay unchanged.
 - No compatibility parser for the old initialization envelope remains.
 - No release, publication, network qualification, or tag mutation occurs.
-
