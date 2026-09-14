@@ -51,11 +51,13 @@ Secrets, tokens, absolute runner paths, environment contents, and raw Terraform
 material never reach logs, step outputs, job summaries, or artifacts. What is
 published is what an accepted spec requires and nothing more.
 
-## VIII. Offline after install
+## VIII. Explicit preparation is the only post-install network boundary
 
-Beyond resolving and downloading the pinned CLI release, a run performs no
-network access. No telemetry, analytics, call-home, or CDN dependency exists at
-any point.
+After resolving and downloading the pinned CLI release, only the single
+explicit project-preparation command may use network access, and only for exact
+external OCI identities already pinned by `rootform.lock`. Analysis, diff,
+policy evaluation, reporting, telemetry, analytics, call-home, and CDN access
+remain network-free.
 
 ## IX. The bundle is generated and proven
 
@@ -86,3 +88,6 @@ migration.
 
 - 2026-08-27 — @soulbah: initial constitution recorded when the repository was
   scaffolded from the Rootform engineering foundation.
+- 2026-09-14 — @soulbah: ADR-005 replaced independently acquired supplied
+  Dialects with release-set semantics and narrowed post-install network access
+  to exact external lock preparation.

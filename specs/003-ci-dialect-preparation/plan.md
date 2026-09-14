@@ -1,5 +1,7 @@
 # SPEC-003 implementation plan
 
+> Superseded by SPEC-004 on 2026-09-14. Retained as historical evidence only.
+
 Planning starts only after `spec.md` is owner-accepted.
 
 ## Acceptance mapping

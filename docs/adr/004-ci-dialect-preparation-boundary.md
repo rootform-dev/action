@@ -1,12 +1,14 @@
 # ADR-004: Continuous integration dialect preparation boundary
 
-- Status: Accepted
+- Status: Superseded by ADR-005 on 2026-09-14
 - Date: 2026-09-01
 - Owners: @soulbah
 - Owner approval: @soulbah — 2026-09-01 (explicit directive to make Rootform
   runnable in any CI with vendored dialects, a committed lock, or no lock at
   all, without duplicating Rootform resolution logic in the Action)
 - Related spec: `specs/003-ci-dialect-preparation/spec.md`
+
+> Historical decision only. ADR-005 replaces this model without compatibility.
 
 ## Context
 

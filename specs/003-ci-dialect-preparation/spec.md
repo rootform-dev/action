@@ -1,6 +1,6 @@
 # SPEC-003: Continuous integration dialect preparation
 
-- Status: Accepted
+- Status: Superseded by SPEC-004 on 2026-09-14
 - Owner: @soulbah
 - Owner approval: @soulbah — 2026-09-01 (explicit directive to make Rootform
   runnable in any CI with vendored dialects, a committed lock, or no lock at
@@ -8,6 +8,8 @@
 - Created: 2026-09-01
 - Updated: 2026-09-01
 - Related ADRs: ADR-002, ADR-004
+
+> Historical contract only. SPEC-004 replaces this model without compatibility.
 
 ## Problem
 

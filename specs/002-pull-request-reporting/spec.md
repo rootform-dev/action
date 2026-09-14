@@ -42,8 +42,8 @@ change itself.
   creation, review approval, autofix, or repository mutation.
 - `pull_request_target`, privileged fork execution, hidden network calls, or a
   required write token for analysis-only use.
-- Installing or resolving project dialects. Projects provide exact locked or
-  vendored dialects as required by the CLI.
+- Selecting supplied semantics or external packages. Projects provide any exact
+  locked or vendored Dialects and Policy Packs required by the CLI.
 - Publishing a Rootform or Action release, moving tags, or changing repository
   visibility during implementation and proof.
 
@@ -82,7 +82,7 @@ change itself.
 
 - Acceptance: WHEN source analysis runs THE SYSTEM SHALL execute `path` and
   `baseline-path` build and policy commands from each contained project root so
-  its exact `rootform.lock` or `.rootform/dialects` is used,
+  its exact `rootform.lock` and vendored external selections are used,
   while rejecting absolute, escaping, file, and symbolic-link paths.
 - Done when: `bun test src/run.test.ts -t "project roots"` exits `0`.
 - Evidence: `src/run.ts`, `src/run.test.ts`
