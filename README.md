@@ -30,7 +30,7 @@ Two entrypoints share one installer:
 ```
 
 Main entrypoint accepts `source` or `plan` mode. By default it writes
-Architecture IR, self-contained HTML, policy JSON, SARIF, and CLI Markdown;
+a Rootform document, self-contained HTML, policy JSON, SARIF, and CLI Markdown;
 uploads only four named machine/render files; and appends exact CLI policy
 Markdown to Job Summary. It never parses artifacts to invent semantic or
 policy conclusions.
@@ -136,8 +136,8 @@ Action never uses a write token on them. Workflows must use `pull_request`, not
 named plan JSON.
 
 The artifact inventory stays fixed. Existing analysis uploads current
-Architecture IR and HTML plus policy JSON and SARIF. Source diff reporting adds
-baseline Architecture IR and HTML plus exact diff JSON and Markdown. Plan diff
+Rootform document and HTML plus policy JSON and SARIF. Source diff reporting adds
+baseline Rootform document and HTML plus exact diff JSON and Markdown. Plan diff
 reporting adds exact diff JSON and Markdown.
 
 Release archive and `SHA256SUMS` must both match GitHub asset metadata. Binary
