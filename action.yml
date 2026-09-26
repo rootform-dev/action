@@ -72,7 +72,7 @@ outputs:
   lock-path:
     description: Workspace-relative rootform.lock path when the project has one
   architecture:
-    description: Workspace-relative Architecture IR path
+    description: Workspace-relative Rootform document path
   html:
     description: Workspace-relative self-contained HTML path
   policy-json:
@@ -86,7 +86,7 @@ outputs:
   diff-markdown:
     description: Workspace-relative architecture diff Markdown path
   baseline-architecture:
-    description: Workspace-relative baseline Architecture IR path in source mode
+    description: Workspace-relative baseline Rootform document path in source mode
   baseline-html:
     description: Workspace-relative baseline self-contained HTML path in source mode
   artifact-id:
