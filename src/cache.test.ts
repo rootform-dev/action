@@ -38,19 +38,14 @@ describe("external dependency cache", () => {
     try {
       const keys = cacheKeys({
         lockPath: locked.lockPath,
-        mode: "locked",
+
         platform: "linux-x64",
-        runId: "42",
+
         version: "0.1.0",
       });
-      expect(keys.primary).toStartWith(
-        "rootform-external-packages-v1-linux-x64-0.1.0-locked-lock-",
-      );
+      expect(keys.primary).toStartWith("rootform-external-packages-v2-linux-x64-0.1.0-lock-");
       expect(keys.primary).toMatch(/-lock-[0-9a-f]{64}$/u);
-      expect(keys.restore).toEqual([
-        "rootform-external-packages-v1-linux-x64-0.1.0-locked-lock-",
-        "rootform-external-packages-v1-linux-x64-0.1.0-locked-",
-      ]);
+      expect(keys.restore).toEqual([]);
 
       // A different lock must never reuse the same entry.
       writeFileSync(
@@ -59,9 +54,9 @@ describe("external dependency cache", () => {
       );
       const changed = cacheKeys({
         lockPath: locked.lockPath,
-        mode: "locked",
+
         platform: "linux-x64",
-        runId: "42",
+
         version: "0.1.0",
       });
       expect(changed.primary).not.toBe(keys.primary);
@@ -70,42 +65,34 @@ describe("external dependency cache", () => {
     }
   });
 
-  test("keeps an unlocked key coarse", () => {
-    const keys = cacheKeys({
-      lockPath: "/workspace/absent/rootform.lock",
-      mode: "default",
-      platform: "linux-arm64",
-      runId: "981",
-      version: "0.1.0",
-    });
-    expect(keys.primary).toBe("rootform-external-packages-v1-linux-arm64-0.1.0-default-open-981");
-    expect(keys.restore).toEqual([
-      "rootform-external-packages-v1-linux-arm64-0.1.0-default-open-",
-      "rootform-external-packages-v1-linux-arm64-0.1.0-default-",
-    ]);
-    // An untrusted run identifier never reaches the key verbatim.
-    expect(
-      cacheKeys({ mode: "default", platform: "linux-x64", runId: "../../etc", version: "0.1.0" })
-        .primary,
-    ).toBe("rootform-external-packages-v1-linux-x64-0.1.0-default-open-0");
+  test("binds version and platform, not execution mode or run identity", () => {
+    const locked = workspaceWithLock("exact immutable lock bytes");
+    try {
+      const base = { lockPath: locked.lockPath, platform: "linux-x64", version: "0.1.0" };
+      expect(cacheKeys(base)).toEqual(cacheKeys(base));
+      expect(cacheKeys({ ...base, version: "0.1.0-pr.117.1" }).primary).not.toBe(
+        cacheKeys(base).primary,
+      );
+      expect(cacheKeys({ ...base, platform: "linux-arm64" }).primary).not.toBe(
+        cacheKeys(base).primary,
+      );
+      expect(cacheKeys(base).restore).toEqual([]);
+    } finally {
+      rmSync(locked.directory, { force: true, recursive: true });
+    }
   });
 
   test("never lets a restored entry replace verification", async () => {
     const home = mkdtempSync(join(tmpdir(), "rootform-cache-home-"));
     mkdirSync(join(home, "dialects"), { recursive: true });
     mkdirSync(join(home, "policy-packs"), { recursive: true });
-    const keys = cacheKeys({
-      mode: "default",
-      platform: "linux-x64",
-      runId: "7",
-      version: "0.1.0",
-    });
+    const keys = { primary: "rootform-exact-key", restore: [] };
     const restoreCalls: Array<{ paths: string[]; primary: string; restore: string[] }> = [];
     const saveCalls: Array<{ paths: string[]; primary: string }> = [];
     const client: CacheClient = {
       restore: async (paths, primary, restore) => {
         restoreCalls.push({ paths, primary, restore });
-        return restore[0];
+        return primary;
       },
       save: async (paths, primary) => {
         saveCalls.push({ paths, primary });
@@ -118,9 +105,9 @@ describe("external dependency cache", () => {
       expect(restoreCalls).toHaveLength(1);
       expect(restoreCalls[0]?.paths).toEqual(cachePaths(home));
 
-      // A hit on a restore prefix still saves the exact key for the next run.
-      expect(await saveDependencyCache({ client, home, keys, outcome })).toBeTrue();
-      expect(saveCalls[0]?.primary).toBe(keys.primary);
+      // An exact hit is immutable and is never rewritten.
+      expect(await saveDependencyCache({ client, home, keys, outcome })).toBeFalse();
+      expect(saveCalls).toHaveLength(0);
 
       // An exact hit needs no rewrite.
       expect(
@@ -131,7 +118,7 @@ describe("external dependency cache", () => {
           outcome: { matchedKey: keys.primary, restored: true },
         }),
       ).toBeFalse();
-      expect(saveCalls).toHaveLength(1);
+      expect(saveCalls).toHaveLength(0);
     } finally {
       rmSync(home, { force: true, recursive: true });
     }
@@ -140,12 +127,7 @@ describe("external dependency cache", () => {
   test("treats a cache failure as a slower run, never as a different result", async () => {
     const home = mkdtempSync(join(tmpdir(), "rootform-failing-cache-home-"));
     mkdirSync(join(home, "dialects"));
-    const keys = cacheKeys({
-      mode: "default",
-      platform: "linux-x64",
-      runId: "7",
-      version: "0.1.0",
-    });
+    const keys = { primary: "rootform-exact-key", restore: [] };
     const warnings: string[] = [];
     const failing: CacheClient = {
       restore: async () => {
@@ -195,12 +177,7 @@ describe("external dependency cache", () => {
             },
           },
           home,
-          keys: cacheKeys({
-            mode: "default",
-            platform: "linux-x64",
-            runId: "7",
-            version: "0.1.0",
-          }),
+          keys: { primary: "rootform-exact-key", restore: [] },
           outcome: { restored: false },
           warn: (message) => warnings.push(message),
         }),

@@ -1,5 +1,7 @@
 # SPEC-003: Continuous integration dialect preparation
 
+> Historical specification. SPEC-006 replaces its active Action surface on 2026-10-02.
+
 - Status: Superseded by SPEC-004 on 2026-09-14
 - Owner: @soulbah
 - Owner approval: @soulbah — 2026-09-01 (explicit directive to make Rootform

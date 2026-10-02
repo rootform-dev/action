@@ -26,11 +26,12 @@
     "test:tooling": "bun test scripts",
     "typecheck": "tsc --noEmit",
     "verify:dist": "bun scripts/verify-dist.ts",
-    "verify": "bun scripts/verify.ts --full"
+    "verify": "bun scripts/verify.ts --full",
+    "test:integration": "bun scripts/integration.ts"
   },
   "dependencies": {
     "@actions/artifact": "6.2.1",
-    "@actions/cache": "6.2.0",
+    "@actions/cache": "6.3.0",
     "@actions/core": "3.0.1",
     "@actions/tool-cache": "4.0.0"
   },

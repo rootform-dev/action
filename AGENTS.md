@@ -50,9 +50,13 @@ Before changing anything:
   produce the same outputs.
 - The Action requests the least privilege that works and never demands a token
   it does not use.
-- Secrets, tokens, absolute runner paths, and raw Terraform material never
-  reach logs, outputs, job summaries, or artifacts.
-- After installation the Action needs no network access.
+- Secrets, tokens, environment contents and raw Terraform inputs never reach
+  logs, outputs, summaries, comments or artifacts. Step outputs contain paths,
+  never Form/report contents. Valid Forms and CLI reports are explicit derived
+  evidence, allowed in enabled artifacts and human reports.
+- Analysis and Policy evaluation are network-free. Exact project preparation,
+  dependency-cache transport and explicitly enabled GitHub reporting may use
+  their documented network boundaries.
 - `dist/` is generated, committed, and provably in sync with `src/`.
 - A failure is explicit. An unavailable version, a checksum mismatch, or an
   unsupported runner stops the job with a diagnostic naming the cause.

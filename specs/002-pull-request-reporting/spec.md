@@ -1,5 +1,7 @@
 # SPEC-002: Pull request architecture reporting
 
+> Historical specification. SPEC-006 replaces its active Action surface on 2026-10-02.
+
 - Status: Accepted
 - Owner: @soulbah
 - Owner approval: @soulbah — 2026-08-31 (explicit directive to implement

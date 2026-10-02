@@ -1,3 +1,3 @@
-import { main } from "./main.ts";
+import { runEntry } from "./main.ts";
 
-void main();
+await runEntry("main");
