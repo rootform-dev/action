@@ -90,3 +90,16 @@ consumer. Exact CLI pins are distinct from Action Git refs. Public workflow
 qualification uses synthetic data only. The owner authorizes this replacement
 surface; release refs may first be created only after reviewed green merged
 source. No existing tag is moved by this change.
+
+## Complete review clarification
+
+- Owner approval: @soulbah — 2026-10-02.
+- GitHub Actions request `--details` for every Markdown-producing run/check.
+  Full reports remain in step outputs and enabled artifacts; long lists use
+  disclosure rather than a CLI preview instruction in GitHub.
+- Review composition preserves CLI statements, tables and recorded verdicts,
+  uses one H2 identity, H3 blocks and H4 subsections, and separates major blocks.
+  It does not derive conclusions from Form or Policy JSON.
+- Inline size limits may omit secondary/exhaustive detail, with an explicit
+  complete-report link, while retaining CLI-written primary summaries and
+  verdicts. File outputs and artifacts always retain the complete report.

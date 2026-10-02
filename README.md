@@ -282,3 +282,9 @@ GitHub.com.
 Rootform Action source is licensed under [Apache License 2.0](LICENSE).
 Rootform binary release terms are separate and ship with each distribution
 archive.
+
+Reports are requested with `--details`: file outputs and enabled artifacts
+contain complete CLI evidence. Summary and the optional PR comment preserve
+CLI summaries and verdicts, fold secondary details, and link the full report
+when GitHub inline limits require a shorter display. No second analysis is
+performed to produce the inline display.
