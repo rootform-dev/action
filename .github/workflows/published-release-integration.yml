@@ -32,6 +32,7 @@ jobs:
         uses: ./setup
         with:
           version: ${{ inputs.version }}
+          github-token: ""
 
       - name: Verify installed release identity
         shell: bash
