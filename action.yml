@@ -3,19 +3,19 @@ description: Analyze or compare evidence, evaluate selected Policies, and presen
 author: Rootform
 inputs:
   version:
-    description: "Exact published Rootform version; omit only to reuse an earlier Rootform Action step"
+    description: "Exact published version; omit to reuse a verified version in this job"
     required: false
     default: ""
   github-token:
-    description: "Optional GitHub API token for release rate limits; root comment uses it only when enabled"
+    description: "GitHub token for release API requests and enabled PR comments"
     required: false
     default: "${{ github.token }}"
   project:
-    description: "Rootform project directory for raw evidence or Policy Pack selection; default workspace"
+    description: "Project directory for raw evidence or Policy selection; defaults to workspace"
     required: false
     default: ""
   locked:
-    description: "Require and preserve the project rootform.lock for analysis or Policy selection"
+    description: "Require and preserve existing rootform.lock"
     required: false
     default: "false"
   offline:
@@ -23,59 +23,59 @@ inputs:
     required: false
     default: "false"
   cache:
-    description: "Cache verified external Dialect and Policy Pack sources selected by the project lock"
+    description: "Cache verified external sources selected by rootform.lock"
     required: false
     default: "true"
   input:
-    description: "Plan JSON, state JSON, or saved Form file"
+    description: "Path to plan JSON, state JSON, Form or Comparison Form"
     required: false
     default: ""
   plan-file:
-    description: "Optional saved binary plan paired with input; supplied pairing must verify"
+    description: "Matching saved plan for input; pairing must verify"
     required: false
     default: ""
   before:
-    description: "Before operand: plan JSON, state JSON, or single-input Form"
+    description: "Before plan JSON, state JSON or single-input Form"
     required: false
     default: ""
   after:
-    description: "After operand: plan JSON, state JSON, or single-input Form"
+    description: "After plan JSON, state JSON or single-input Form"
     required: false
     default: ""
   before-plan-file:
-    description: "Optional saved plan paired with before; supplied pairing must verify"
+    description: "Matching saved plan for before; pairing must verify"
     required: false
     default: ""
   after-plan-file:
-    description: "Optional saved plan paired with after; supplied pairing must verify"
+    description: "Matching saved plan for after; pairing must verify"
     required: false
     default: ""
   stage:
-    description: "Architecture stage to present or evaluate: planned, refreshed, recorded"
+    description: "Architecture stage: planned, refreshed or recorded"
     required: false
     default: ""
   before-stage:
-    description: "Before architecture stage: planned, refreshed, recorded; CLI default when omitted"
+    description: "Before stage: planned, refreshed or recorded"
     required: false
     default: ""
   after-stage:
-    description: "After architecture stage: planned, refreshed, recorded; CLI default when omitted"
+    description: "After stage: planned, refreshed or recorded"
     required: false
     default: ""
   side:
-    description: "Comparison sides to check: before, after, both; CLI default is both"
+    description: "Comparison sides: before, after or both; defaults to both"
     required: false
     default: ""
   policy:
-    description: "Policy selectors, one per line; narrows explicitly selected Policy Packs"
+    description: "Policy selectors, one per line, within selected Packs"
     required: false
     default: ""
   policy-pack:
-    description: "Policy Pack source directories or compiled files, one path per line"
+    description: "Policy Pack source directories or compiled files, one per line"
     required: false
     default: ""
   check:
-    description: "Evaluate all project-selected Policies even without explicit selector or overlay"
+    description: "Check all project-selected Policies without explicit selectors or overlays"
     required: false
     default: "false"
   summary:
@@ -83,40 +83,40 @@ inputs:
     required: false
     default: "true"
   upload-artifact:
-    description: "Persist only Form and derived reports as one GitHub artifact"
+    description: "Upload Form and derived reports as one artifact; never raw inputs"
     required: false
     default: "true"
   artifact-name:
-    description: "Optional stable artifact name; default is unique per invocation, including matrix jobs"
+    description: "Artifact name; defaults to a unique name per invocation, including matrix jobs"
     required: false
     default: ""
   retention-days:
-    description: "Artifact retention from 1 to 90 days, subject to repository limit"
+    description: "Artifact retention: 1–90 days, capped by repository limit"
     required: false
     default: "7"
   comment:
-    description: "Opt in to one current same-repository PR comment; requires serialized reporter job and write permission"
+    description: "Update one same-repository PR comment; requires write permission and job serialization"
     required: false
     default: "false"
 outputs:
   version:
-    description: "Exact verified Rootform CLI version"
+    description: "Verified Rootform CLI version"
   form:
-    description: "Reusable same-job path to the Form; compare returns a Comparison Form"
+    description: "Path to the supplied or generated Form"
   report:
-    description: "Reusable same-job path to complete CLI Markdown report"
+    description: "Path to the complete CLI Markdown report"
   html:
-    description: "Reusable same-job path to self-contained HTML Explorer"
+    description: "Path to the self-contained HTML Explorer"
   result:
-    description: "Reusable same-job path to Policy result JSON"
+    description: "Path to Policy result JSON"
   sarif:
-    description: "Reusable same-job path to Policy result SARIF"
+    description: "Path to Policy result SARIF"
   exit-code:
-    description: "Exact Rootform check exit code, published before applying its gate"
+    description: "Rootform check exit code, exposed before the gate"
   artifact-id:
-    description: "Uploaded GitHub artifact ID for cross-job download"
+    description: "Uploaded artifact ID for cross-job download"
   artifact-url:
-    description: "Uploaded GitHub evidence artifact URL"
+    description: "Uploaded artifact URL"
 runs:
   using: node24
   main: dist/main/index.js
