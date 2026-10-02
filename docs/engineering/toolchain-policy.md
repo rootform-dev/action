@@ -9,11 +9,11 @@ Exclude prereleases, nightly builds, abandoned packages, and combinations whose 
 ## Active foundation toolchain
 
 `package.json`, `bun.lock`, workflow SHAs, and CI checks are source of truth. The
-current foundation pins Bun 1.4.0, TypeScript 7.0.2, Biome 2.5.11, Bun types
+current foundation pins Bun 1.4.0, TypeScript 7.0.2, Biome 2.5.14, Bun types
 1.4.0, Gitleaks 8.30.1, and actionlint 1.7.12. Release automation pins
 semantic-release 25.0.9 with `@semantic-release/commit-analyzer` 13.0.1,
 `@semantic-release/release-notes-generator` 14.1.1, `@semantic-release/github`
-12.0.9, and `conventional-changelog-conventionalcommits` 10.4.0. Any runtime
+12.0.10, and `conventional-changelog-conventionalcommits` 10.4.0. Any runtime
 dependency an action entrypoint needs requires fresh compatibility validation in
 an accepted spec.
 
@@ -53,9 +53,9 @@ verified this way does not enter the gate.
 - Runtime dependencies are bundled, so every added package ships to every
   caller. Prefer the Node standard library and the already-present Actions
   toolkit before adding one.
-- Prefer a pinned Rootform CLI version. When the caller names no version, the
-  action resolves the latest published release, records the exact resolved
-  version in its output, and still verifies its checksum.
+- Require an exact published Rootform CLI version, or inherit the exact version
+  installed by an earlier Action step. No mutable latest or version range is
+  resolved. Reused executables pass published hash verification before execution.
 
 ## Automation
 

@@ -136,6 +136,6 @@ describe("CI product spec metadata", () => {
     ).text();
     expect(workflow).toContain("uses: ./setup");
     expect(workflow).not.toContain("ROOTFORM_RELEASES_READ_TOKEN");
-    expect(workflow).not.toContain("github-token:");
+    expect(workflow).toContain('github-token: ""');
   });
 });

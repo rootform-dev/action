@@ -1,188 +1,70 @@
 import { expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { cliEnvironment } from "./environment.ts";
-import { type MainDependencies, main } from "./main.ts";
-import { runPreparation } from "./preparation.ts";
-import { resultPaths } from "./run.ts";
+import { runCommand } from "./run.ts";
 
-test("analysis performs no JavaScript network operation after preparation", async () => {
-  const workspace = mkdtempSync(join(tmpdir(), "rootform-network-test-"));
-  const originalFetch = globalThis.fetch;
-  let networkCalls = 0;
-  Object.defineProperty(globalThis, "fetch", {
-    configurable: true,
-    value: async () => {
-      networkCalls++;
-      throw new Error("unexpected network request");
-    },
-  });
-  let installed = false;
-  let prepared = false;
-  let analyzed = false;
-  const dependencies: MainDependencies = {
-    artifactClient: () => ({
-      uploadArtifact: async () => {
-        throw new Error("artifact upload must be disabled");
-      },
-    }),
-    core: {
-      getBooleanInput: () => false,
-      getInput: () => "",
-      setFailed: () => {},
-      setOutput: () => {},
-      summary: { addRaw: () => ({ write: async () => {} }) },
-    },
-    install: async () => {
-      installed = true;
-      return { binary: "rootform", sha256: "a".repeat(64), version: "1.2.3" };
-    },
-    prepare: () => {
-      expect(installed).toBeTrue();
-      prepared = true;
-      return {
-        downloadedBytes: 0,
-        dialects: [],
-        policyPacks: [],
-        preparationMode: "default",
-      };
-    },
-    run: (options) => {
-      expect(installed).toBeTrue();
-      expect(prepared).toBeTrue();
-      analyzed = true;
-      return { exitCode: 3, paths: resultPaths(options.outputDirectory) };
-    },
-    workspace: () => workspace,
-  };
+test("GitHub and Action credentials are absent in a real CLI child process", () => {
+  const workspace = mkdtempSync(join(tmpdir(), "rootform-cli-environment-"));
+  const forbidden = [
+    ["GITHUB_TOKEN", "github-token-sentinel"],
+    ["GH_TOKEN", "gh-token-sentinel"],
+    ["ACTIONS_RUNTIME_TOKEN", "runtime-token-sentinel"],
+    ["ACTIONS_ID_TOKEN_REQUEST_TOKEN", "oidc-token-sentinel"],
+    ["INPUT_GITHUB-TOKEN", "release-token-sentinel"],
+    ["INPUT_PULL-REQUEST-TOKEN", "comment-token-sentinel"],
+    ["INPUT_CUSTOM", "input-token-sentinel"],
+    ["input_case_variant", "input-case-token-sentinel"],
+  ] as const;
+  const preserved = ["ROOTFORM_HOME", "GITHUB_WORKSPACE", "ROOTFORM_TEST_SAFE"] as const;
+  const variableNames = [...forbidden.map(([name]) => name), ...preserved];
+  const previous = new Map(variableNames.map((name) => [name, process.env[name]]));
+  const rootformHome = join(workspace, "rootform-home");
+  process.env.ROOTFORM_HOME = rootformHome;
+  process.env.GITHUB_WORKSPACE = workspace;
+  process.env.ROOTFORM_TEST_SAFE = "ordinary-value-preserved";
+  for (const [name, value] of forbidden) process.env[name] = value;
 
   try {
-    await main(dependencies);
-    expect(networkCalls).toBe(0);
-    expect(analyzed).toBeTrue();
-  } finally {
-    Object.defineProperty(globalThis, "fetch", { configurable: true, value: originalFetch });
-    rmSync(workspace, { force: true, recursive: true });
-  }
-});
+    const blockedNames = forbidden.map(([name]) => name.toUpperCase());
+    const childScript = `
+      const blocked = new Set(${JSON.stringify(blockedNames)});
+      const excluded = Object.keys(process.env)
+        .filter((name) => name.toUpperCase().startsWith("INPUT_") || blocked.has(name.toUpperCase()))
+        .sort();
+      process.stdout.write(JSON.stringify({
+        excluded,
+        rootformHome: process.env.ROOTFORM_HOME,
+        workspace: process.env.GITHUB_WORKSPACE,
+        safe: process.env.ROOTFORM_TEST_SAFE,
+        path: process.env.PATH,
+        ci: process.env.CI,
+        noColor: process.env.NO_COLOR,
+      }));
+    `;
+    const result = runCommand([process.execPath, "-e", childScript], workspace);
 
-test("isolates tokens from CLI children and failure evidence", async () => {
-  const releaseToken = "release-secret-value";
-  const pullRequestToken = "pull-request-secret-value";
-  expect(
-    cliEnvironment({
-      GITHUB_TOKEN: "implicit-secret",
-      GITHUB_WORKSPACE: "/workspace",
-      "INPUT_GITHUB-TOKEN": releaseToken,
-      "INPUT_PULL-REQUEST-TOKEN": pullRequestToken,
-    }),
-  ).toEqual({ GITHUB_WORKSPACE: "/workspace" });
-
-  const workspace = mkdtempSync(join(tmpdir(), "rootform-token-test-"));
-  const failures: string[] = [];
-  const secrets: string[] = [];
-  try {
-    await main({
-      artifactClient: () => ({ uploadArtifact: async () => ({ id: 1 }) }),
-      core: {
-        getBooleanInput: () => false,
-        getInput: (name) => {
-          if (name === "github-token") return releaseToken;
-          if (name === "pull-request-token") return pullRequestToken;
-          return "";
-        },
-        setFailed: (message) => failures.push(message),
-        setOutput: () => {},
-        setSecret: (value) => secrets.push(value),
-        summary: { addRaw: () => ({ write: async () => {} }) },
-      },
-      install: async () => {
-        throw new Error(`${releaseToken}/${pullRequestToken}/${workspace}/private`);
-      },
-      run: () => {
-        throw new Error("run must not be reached");
-      },
-      workspace: () => workspace,
-    });
-    expect(secrets).toEqual([releaseToken, pullRequestToken]);
-    expect(failures).toEqual(["***/***/<runner-path>/private"]);
-    expect(failures.join("\n")).not.toContain(releaseToken);
-    expect(failures.join("\n")).not.toContain(pullRequestToken);
-  } finally {
-    rmSync(workspace, { force: true, recursive: true });
-  }
-});
-
-test("keeps credentials out of preparation", () => {
-  expect(
-    cliEnvironment({
-      GITHUB_TOKEN: "implicit-secret",
-      GITHUB_WORKSPACE: "/workspace",
-      "INPUT_GITHUB-TOKEN": "release-secret",
-      "INPUT_PULL-REQUEST-TOKEN": "comment-secret",
-      ROOTFORM_HOME: "/runner/temp/rootform-home",
-    }),
-  ).toEqual({ GITHUB_WORKSPACE: "/workspace", ROOTFORM_HOME: "/runner/temp/rootform-home" });
-
-  /* The stripped environment is proven against a real child process, not only
-     against the helper: preparation must reach the CLI with no credential even
-     though it is the one command allowed to acquire external packages. */
-  const workspace = mkdtempSync(join(tmpdir(), "rootform-preparation-env-"));
-  const releaseToken = "release-secret-value";
-  const pullRequestToken = "pull-request-secret-value";
-  const implicitToken = "implicit-secret-value";
-  const captured = join(workspace, "child-environment");
-  const binary = join(workspace, "rootform");
-  writeFileSync(
-    binary,
-    [
-      "#!/bin/sh",
-      `env > "${captured}"`,
-      'printf \'{"dialects":[],"downloaded_bytes":0,"format_version":"1",',
-      '"policy_packs":[],"prepared":true}\\n\'',
-      "",
-    ].join("\n"),
-  );
-  chmodSync(binary, 0o755);
-
-  const previous = {
-    github: process.env.GITHUB_TOKEN,
-    release: process.env["INPUT_GITHUB-TOKEN"],
-    review: process.env["INPUT_PULL-REQUEST-TOKEN"],
-  };
-  process.env.GITHUB_TOKEN = implicitToken;
-  process.env["INPUT_GITHUB-TOKEN"] = releaseToken;
-  process.env["INPUT_PULL-REQUEST-TOKEN"] = pullRequestToken;
-  try {
-    const preparation = runPreparation({
-      binary,
-      input: ".",
-      locked: false,
-      offline: false,
+    expect(result.exitCode).toBe(0);
+    const observed = JSON.parse(result.stdout ?? "") as {
+      excluded: string[];
+      rootformHome: string;
+      workspace: string;
+      safe: string;
+      path: string | undefined;
+      ci: string;
+      noColor: string;
+    };
+    expect(observed).toEqual({
+      excluded: [],
+      rootformHome,
       workspace,
+      safe: "ordinary-value-preserved",
+      path: process.env.PATH,
+      ci: "true",
+      noColor: "1",
     });
-    expect(preparation).toMatchObject({
-      downloadedBytes: 0,
-      dialects: [],
-      policyPacks: [],
-      preparationMode: "default",
-    });
-
-    const contents = readFileSync(captured, "utf8");
-    expect(contents.length).toBeGreaterThan(0);
-    for (const secret of [implicitToken, releaseToken, pullRequestToken]) {
-      expect(contents).not.toContain(secret);
-    }
-    for (const name of ["GITHUB_TOKEN=", "INPUT_GITHUB-TOKEN=", "INPUT_PULL-REQUEST-TOKEN="]) {
-      expect(contents).not.toContain(name);
-    }
   } finally {
-    for (const [name, value] of [
-      ["GITHUB_TOKEN", previous.github],
-      ["INPUT_GITHUB-TOKEN", previous.release],
-      ["INPUT_PULL-REQUEST-TOKEN", previous.review],
-    ] as const) {
+    for (const [name, value] of previous) {
       if (value === undefined) delete process.env[name];
       else process.env[name] = value;
     }

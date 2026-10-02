@@ -47,17 +47,20 @@ of filesystem enumeration never change a result.
 
 ## VII. Data minimization
 
-Secrets, tokens, absolute runner paths, environment contents, and raw Terraform
-material never reach logs, step outputs, job summaries, or artifacts. What is
-published is what an accepted spec requires and nothing more.
+Secrets, tokens, environment contents and raw Terraform inputs never reach
+logs, step outputs, summaries, comments or artifacts. Step outputs may contain
+file paths, including absolute runner temporary paths, for same-job reuse;
+never file bodies. Valid Forms and CLI reports are explicit derived evidence.
+They may reveal architecture and require the caller to choose artifact/Summary
+sharing and opt-in commenting. Home and credential stores are never artifacts.
 
 ## VIII. Explicit preparation is the only post-install network boundary
 
-After resolving and downloading the pinned CLI release, only the single
-explicit project-preparation command may use network access, and only for exact
-external OCI identities already pinned by `rootform.lock`. Analysis, diff,
-policy evaluation, reporting, telemetry, analytics, call-home, and CDN access
-remain network-free.
+After verified installation, only project preparation may acquire exact
+external OCI identities already pinned by `rootform.lock`. Analysis, comparison
+and Policy evaluation are network-free. Explicitly enabled GitHub artifact and
+comment transport may use GitHub APIs; Summary is a runner file write. No
+telemetry, analytics, call-home or CDN operation is permitted.
 
 ## IX. The bundle is generated and proven
 
@@ -91,3 +94,7 @@ migration.
 - 2026-09-14 — @soulbah: ADR-005 replaced independently acquired supplied
   Dialects with release-set semantics and narrowed post-install network access
   to exact external lock preparation.
+
+- 2026-10-02 — @soulbah: ADR-006 authorizes reusable file-path outputs,
+  derived Form/report artifacts, current autonomous primitives and explicit
+  GitHub reporting transports in the complete Action redesign.

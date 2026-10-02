@@ -1,191 +1,284 @@
-# Rootform Action
+# Rootform GitHub Action
 
 [![Quality](https://github.com/rootform-dev/action/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/rootform-dev/action/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-GitHub Actions integration for [Rootform](https://github.com/rootform-dev/rootform),
-the deterministic Terraform architecture compiler.
+Rootform Action passes Terraform plan or state exports, or saved Rootform Forms,
+to the published Rootform CLI. Rootform owns input validation, architecture
+semantics, Policy evaluation and exit codes. The Action installs and verifies
+the CLI, forwards its reports, and never executes Terraform or OpenTofu.
 
-## Release status
+## The v1 surface
 
-Source is available for review before the first consumer Action release. No
-supported consumer tag exists yet. The examples below document the accepted
-surface and become runnable when the owner publishes `v1`.
+The six v1 refs
+<code>rootform-dev/action@v1</code>,
+<code>rootform-dev/action/setup@v1</code>,
+<code>rootform-dev/action/init@v1</code>,
+<code>rootform-dev/action/analyze@v1</code>,
+<code>rootform-dev/action/compare@v1</code> and
+<code>rootform-dev/action/check@v1</code> share one reviewed source commit.
+Use a full commit SHA when an immutable Action pin is required. Public
+qualification is recorded in
+[SPEC-006 evidence](specs/006-github-native-actions/evidence/qualification.md).
 
-## Target usage contract
+Examples use the exact Rootform CLI release selected for qualification: the
+published prerelease
+[0.1.0-pr.117.1](https://github.com/rootform-dev/rootform/releases/tag/v0.1.0-pr.117.1).
+This is a prerelease; the example does not imply that stable CLI 0.1.0 has been
+published.
 
-Two entrypoints share one installer:
+## Golden path
+
+Make a plan or state JSON file available in the workspace, then call the root
+Action. The input can also be a saved Form.
 
 ```yaml
-# Integrated experience: install Rootform, analyze source, report results
-- uses: rootform-dev/action@v1
-  with:
-    version: 0.1.0
-    path: .
+name: Rootform
+on:
+  workflow_dispatch:
 
-# Installation only, for advanced usage
-- uses: rootform-dev/action/setup@v1
-  with:
-    version: 0.1.0
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Generate or download plan.json before this step when it is not committed.
+      - uses: rootform-dev/action@v1
+        id: rootform
+        with:
+          version: 0.1.0-pr.117.1
+          input: plan.json
 ```
 
-Main entrypoint accepts `source` or `plan` mode. By default it writes
-a Rootform document, self-contained HTML, policy JSON, SARIF, and CLI Markdown;
-uploads only four named machine/render files; and appends exact CLI policy
-Markdown to Job Summary. It never parses artifacts to invent semantic or
-policy conclusions.
+The input accepts a plan export, a state export or a saved Form. Use the
+optional <code>plan-file</code> input only with its matching plan export; a
+supplied plan pairing must verify. For plan/state input, one multi-output
+invocation produces the Form and reports. A saved Form keeps its original path
+and bytes; Rootform only renders its reports. JavaScript does not interpret
+architecture or Policy result JSON to decide what the input means or whether
+it passes.
 
-## Dialect and Policy Pack preparation
-
-Before analysis, main entrypoint runs one non-interactive Rootform initialization
-command. Supplied RF Vocabulary and Dialects already live inside installed
-release set. Initialization verifies or acquires only exact external Dialects
-and Policy Pack sources selected by existing `rootform.lock`.
-Action reports CLI envelope; it never parses Terraform, selects semantics, or
-writes lock itself.
+Comparison is optional. Supply both operands to the root Action or use the
+dedicated compare entrypoint:
 
 ```yaml
 - uses: rootform-dev/action@v1
+  id: comparison
   with:
-    path: infra
-    locked: true      # require and preserve existing rootform.lock
-    offline: true     # use only verified local or vendored external packages
+    version: 0.1.0-pr.117.1
+    before: before/plan.json
+    after: after/plan.json
 ```
 
-`locked` and `offline` are independent, and they map to the CLI's own flags:
+Each operand may be a plan export, state export or single-input Form. Pair
+<code>before-plan-file</code> or <code>after-plan-file</code> with the
+corresponding plan export when you have saved binary plan evidence. A
+comparison produces one Comparison Form; the before and after operands are not
+separate Action outputs.
 
-| `locked` | `offline` | Behavior |
-| --- | --- | --- |
-| `false` | `false` | Verify existing selections; acquire exact missing OCI pins when selected |
-| `true` | `false` | Require valid lock and preserve its exact selections |
-| `false` | `true` | Verify selected local content without network |
-| `true` | `true` | Require valid lock and all selected content locally |
+Analysis alone makes no Policy claim. On the root Action, supplying a
+<code>policy</code> selector or <code>policy-pack</code> overlay also requests a
+check. Set <code>check: true</code> to evaluate every Policy selected by the
+project's <code>rootform.lock</code>. Selectors can narrow the selected
+Policies. No Policy Pack is selected implicitly.
 
-Preparation is always non-interactive, so a job can never wait for a prompt.
+## Results and reuse
 
-A project using only supplied semantics needs no lock. Missing lock means empty
-external selection unless `locked` is enabled, in which case CLI rejects it.
-`lock-path` is exposed only when caller already provides a lock. Lock is never
-created, copied, uploaded, staged, committed, or pushed by Action.
+Business entrypoints append CLI Markdown to the GitHub Job Summary by default
+and upload derived evidence by default. The Summary forwards CLI reports and
+run/version/evidence links; it does not calculate semantic counts. Set
+<code>summary: false</code> to disable only the Summary, or
+<code>upload-artifact: false</code> to disable
+artifact upload. For private or sensitive repositories, disable both unless
+sharing derived evidence through these channels is intended; PR comments remain
+opt-in.
 
-The Rootform home is created per job under the runner temporary directory and
-exported as `ROOTFORM_HOME` so later steps in the same job reuse it. Its
-absolute path is never published as an output, in the Job Summary, or in an
-artifact.
+Action outputs such as <code>form</code>, <code>report</code>, <code>html</code>,
+<code>result</code> and <code>sarif</code> are file paths for reuse by later
+steps in the same job. They may be absolute runner temporary paths; they
+contain no file bodies. For a comparison, <code>form</code> is the single
+Comparison Form path. The Action does not expose separate operand Form paths.
 
-`cache` defaults to `true` and reuses only verified installed Dialects and
-Policy Pack source payloads. Supplied semantics, linked artifacts, temporary
-content, and discovery state never enter Action cache. Restored content is not
-authoritative: preparation always runs and CLI verifies every selected package,
-so cache miss or failure changes speed only.
+| Entrypoint | File outputs |
+| --- | --- |
+| analyze | form, report, html |
+| compare | form (Comparison Form), report, html |
+| check | form, result, report, sarif; exact exit-code |
+| root | The outputs produced by its analyze/compare and optional check flows |
 
-A failed preparation stops the job with the CLI diagnostic, runs no analysis
-command, and leaves the project lock untouched.
+All entrypoints expose the verified CLI version. Setup also exposes its
+executable sha256; business actions expose artifact-id/url when upload succeeds.
 
-`setup` installs and verifies CLI only. It never prepares external packages.
+Artifacts serve cross-job transfer. The <code>artifact-id</code> and
+<code>artifact-url</code> outputs identify the uploaded artifact; a same-job
+file path cannot be reused by another runner. Artifacts contain only a valid
+Form and derived reports that Rootform produced or reopened, with fixed
+basenames when present: <code>form.json</code>, <code>report.md</code>,
+<code>explorer.html</code>, <code>result.json</code> and
+<code>results.sarif</code>. Raw plan/state exports, saved binary plans,
+arbitrary project files, credentials and the Rootform home are never uploaded.
 
-## Pull request architecture review
+The default artifact name is unique per Action invocation, including matrix
+and monorepo jobs. If you set <code>artifact-name</code>, make it unique for
+every invocation that uploads within the workflow. Retention defaults to
+seven days; <code>retention-days</code> accepts 1–90 days and remains subject
+to the repository's retention limit.
 
-Opt-in reporting compares caller-owned exact checkouts, publishes Rootform CLI
-diff and policy Markdown in Job Summary, updates one pull-request comment, and
-uploads complete machine evidence:
+The <code>exit-code</code> output preserves Rootform's exact check exit code.
+Rootform reports and enabled publication channels are attempted before a
+non-zero check exit fails the step. Use GitHub's step-level
+<code>continue-on-error</code> when later steps must run; no Action input
+reinterprets a Rootform verdict.
+
+## Installation and project preparation
+
+Every entrypoint requires an exact published Rootform version unless an
+earlier Rootform Action step in the same job installed and verified the
+version. There is no latest or version-range resolution. Public release access
+does not require a credential; the optional <code>github-token</code> defaults
+to <code>github.token</code> to help with GitHub API rate limits and is also
+used by the root Action when PR commenting is enabled. Normal workflows need
+only <code>contents: read</code>.
+
+Before execution, the installer checks the published release asset API digests,
+the archive checksum in SHA256SUMS, and the release manifest's raw executable
+hash. Cached and PATH executables receive the same hash and exact-version
+checks before use. These checks verify release bytes; they do not attest build
+provenance.
+
+All six entrypoints run on Node 24 and require Actions Runner 2.327.1 or newer
+([Node 24 runner requirement](https://github.com/actions/setup-node#breaking-changes-in-v5)).
+This requirement applies to self-hosted runners as well.
+
+Raw input analysis and Policy checks prepare the project's selected external
+content through Rootform. The project defaults to the workspace.
+<code>locked: true</code> requires and preserves its existing
+<code>rootform.lock</code>; the Action never creates or edits the lock.
+<code>offline: true</code> asks the CLI to use verified local content only.
+Saved Forms reopened for analysis need no project preparation.
+
+Business entrypoints create one job-local <code>ROOTFORM_HOME</code> and export
+it for later steps, or reuse a caller-supplied home. The init entrypoint
+prepares content in that shared home. Setup only installs and verifies the
+CLI; it does not prepare content or create the Rootform home.
+
+<code>cache</code> defaults to enabled, but caching is used only when the
+project has a lock. Its key uses the exact CLI version, runner platform and
+lock-file bytes; it excludes the locked and offline modes and never falls back
+to a cache for another lock. An online run can therefore warm a cache for a
+later offline run with the same version, platform and lock. The cache stores
+only external Dialect and Policy Pack source payloads selected by that lock.
+It never stores credentials, Forms, reports, linked artifacts, temporary
+files or discovery state. GitHub allows eligible
+fork pull-request runs to restore base-repository caches
+([cache access rules](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)),
+so treat cache contents as readable by pull-request authors. Set
+<code>cache: false</code> if
+selected source payloads are not appropriate for that visibility. Restored
+payloads are untrusted until Rootform verifies the selected package digests
+again.
+
+## Pull-request comments
+
+Only the root Action supports opt-in comments, through
+<code>comment: true</code>. The comment is written only for a same-repository
+<code>pull_request</code>; fork pull requests skip the comment. Business
+entrypoints and init reject <code>pull_request_target</code>
+before CLI installation. Commenting is supported on GitHub.com only.
+
+Commenting needs <code>pull-requests: write</code> to create or update the
+comment and <code>actions: read</code> to check the current workflow run. Keep
+the other permission at <code>contents: read</code>. The default
+<code>github.token</code> is used unless you supply a different
+<code>github-token</code>.
+
+Every workflow that may report on a PR must use the same job-level concurrency
+group, based only on the PR number, and set
+<code>cancel-in-progress: false</code>. Do not include the workflow name in the
+group; sharing the exact group serializes
+reporter jobs across workflows for that PR.
 
 ```yaml
-name: Rootform architecture
-
 on:
   pull_request:
 
 permissions:
   contents: read
   pull-requests: write
+  actions: read
 
 jobs:
-  architecture:
+  report:
     runs-on: ubuntu-latest
+    concurrency:
+      group: rootform-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     steps:
-      - name: Check out head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: rootform-dev/action@v1
         with:
-          path: rootform-head
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Check out base
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: rootform-base
-          ref: ${{ github.event.pull_request.base.sha }}
-
-      - name: Review architecture
-        uses: rootform-dev/action@v1
-        with:
-          path: rootform-head
-          baseline-path: rootform-base
-          report-diff: true
-          pull-request-token: ${{ github.token }}
+          version: 0.1.0-pr.117.1
+          input: plan.json
+          comment: true
 ```
 
-Action runs each source project from its own root and does not fetch Git
-revisions. Fork pull requests still receive Summary and artifact evidence, but
-Action never uses a write token on them. Workflows must use `pull_request`, not
-`pull_request_target`.
+Make plan.json available before the shown step. The Action rechecks the pull
+request HEAD and current workflow run attempt before it writes. GitHub's
+comment API has no compare-and-swap operation, so those checks alone cannot
+make an update atomic. The shared concurrency group is part of the reporting
+contract.
 
-`report-diff` defaults to `false`. `fail-on-changes` gates documented diff exit
-`1` independently from `fail-on-violations`. Plan mode needs no
-`baseline-path`: Rootform derives before and planned architectures from the
-named plan JSON.
+## Advanced entrypoints
 
-The artifact inventory stays fixed. Existing analysis uploads current
-Rootform document and HTML plus policy JSON and SARIF. Source diff reporting adds
-baseline Rootform document and HTML plus exact diff JSON and Markdown. Plan diff
-reporting adds exact diff JSON and Markdown.
+The root Action is the usual starting point. Each primitive can also run on its
+own; setup and init are optional:
 
-Release archive and `SHA256SUMS` must both match GitHub asset metadata. Binary
-enters tool cache and `PATH` only after archive checksum and reported version
-match requested release.
-
-## Working in this repository
-
-```bash
-bun install --frozen-lockfile
-bun run hooks:install
-bun run verify
-```
-
-`bun run check` is the fast gate used while iterating. `bun run verify` is the
-complete gate and the only basis for a completion claim.
-
-The full gate needs two external tools on `PATH`: Gitleaks 8.30.1 and actionlint
-1.7.12. CI installs both from checksum-verified release archives; locally,
-install them with your own package manager.
-
-Read `AGENTS.md` and `docs/constitution.md` before changing anything.
-
-## Releases
-
-Releases are automated. Merging into `dev` publishes nothing; merging `dev` into
-`main` runs `.github/workflows/release.yml`, which derives the next version from
-the Conventional Commit history and creates both the Git tag and the GitHub
-Release in one step.
-
-| Merged commits | Result |
+| Ref | Purpose |
 | --- | --- |
-| `fix:` or `perf:` | patch release |
-| `feat:` | minor release |
-| `feat!:` or `BREAKING CHANGE:` | minor release while the action is `0.x` |
-| only `chore:`, `ci:`, `docs:`, `style:`, `test:`, `refactor:` | no release |
+| <code>rootform-dev/action/setup@v1</code> | Install and verify the exact CLI; prepare no project content. |
+| <code>rootform-dev/action/init@v1</code> | Prepare external content selected by the project lock. |
+| <code>rootform-dev/action/analyze@v1</code> | Analyze one plan, state export or Form. |
+| <code>rootform-dev/action/compare@v1</code> | Compare before and after plan, state or Form operands. |
+| <code>rootform-dev/action/check@v1</code> | Check a plan, state or Form against selected Policies. |
 
-Nothing is published to a package registry, no version field is rewritten, and
-no commit is pushed back into a protected branch. Tags are immutable: a mistake
-is corrected by a new release, never by moving a published tag. `1.0.0` is a
-deliberate owner decision and requires superseding `docs/adr/001-release-automation.md`.
+Business entrypoints install the CLI and prepare content when their inputs need
+it. A separate setup or init step is not required. When setup is used, later
+steps can inherit its verified exact CLI version; all business steps in a job
+reuse the same <code>ROOTFORM_HOME</code>.
 
-## Relationship to the product
+Check a plan directly; no preceding analyze step is required:
 
-`rootform-dev/rootform` owns release assets and contracts. Action consumes the
-documented CLI surface only; it does not duplicate Rootform semantics.
+```yaml
+- uses: rootform-dev/action/check@v1
+  id: policies
+  with:
+    version: 0.1.0-pr.117.1
+    input: plan.json
+    policy-pack: policy-packs/team
+```
+
+Reuse a Form from an earlier action through
+`input: ${{ steps.rootform.outputs.form }}`. A downloaded Form works the same
+way. Analyze and check can reopen a Comparison Form; compare accepts only
+single-input Forms as operands. For check, `side` selects `before`, `after`, or
+`both` (CLI default). Policy selectors and pack paths accept one value per line.
+
+## Support and scope
+
+The Action consumes plan/state exports and saved Forms. It does not accept
+Terraform configuration source, run Terraform or OpenTofu, plan or apply
+infrastructure, or request cloud, provider or backend credentials.
+
+Current GitHub artifact transport is not supported on GitHub Enterprise Server
+(GHES) ([artifact support](https://github.com/actions/upload-artifact#ghes-support)).
+Set <code>upload-artifact: false</code> there; this leaves same-job path
+outputs and Summary behavior available. Pull-request comments require
+GitHub.com.
 
 ## License
 
-Rootform Action source is licensed under [Apache License 2.0](LICENSE). Rootform
-binary release terms are separate and ship with each distribution archive.
+Rootform Action source is licensed under [Apache License 2.0](LICENSE).
+Rootform binary release terms are separate and ship with each distribution
+archive.

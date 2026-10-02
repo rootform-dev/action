@@ -1,5 +1,7 @@
 # SPEC-004: Release-set project preparation
 
+> Historical specification. SPEC-006 replaces its active Action surface on 2026-10-02.
+
 - Status: Accepted
 - Owner: @soulbah
 - Owner approval: @soulbah — 2026-09-14 (explicit RF Language and

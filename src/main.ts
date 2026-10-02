@@ -1,7 +1,7 @@
-import { existsSync, lstatSync, mkdtempSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import { DefaultArtifactClient } from "@actions/artifact";
+import { basename, join, resolve } from "node:path";
+import { DefaultArtifactClient, type UploadArtifactResponse } from "@actions/artifact";
 import * as core from "@actions/core";
 import {
   type CacheClient,
@@ -9,483 +9,358 @@ import {
   restoreDependencyCache,
   saveDependencyCache,
 } from "./cache.ts";
-import { type DiffResult, runDiff } from "./diff.ts";
 import { type Installation, installRootform } from "./install.ts";
-import { type Preparation, runPreparation } from "./preparation.ts";
+import { containedInput } from "./paths.ts";
+import { runPreparation } from "./preparation.ts";
 import {
   type CommentResult,
   type GitHubContext,
   readGitHubContext,
-  readWorkflowUrl,
   upsertPullRequestComment,
 } from "./pull-request.ts";
-import { type ReportOptions, renderReport } from "./report.ts";
+import { combineReports, REPORT_MARKER, renderReport } from "./report.ts";
 import {
-  type AnalysisResult,
-  type Mode,
-  RootformCommandError,
-  runAnalysis,
-  shouldFail,
+  type CommandRunner,
+  type ExecutionResult,
+  type RunOptions,
+  runBusiness,
+  savedFormHint,
 } from "./run.ts";
 
-type ArtifactResult = { artifactUrl?: string; id?: number };
-
-export const LOCK_FILE = "rootform.lock";
-
+export type ActionKind = "main" | "setup" | "init" | "analyze" | "compare" | "check";
+export type ActionCore = Pick<
+  typeof core,
+  "getInput" | "setOutput" | "setFailed" | "exportVariable" | "setSecret" | "warning"
+> & {
+  summary: { addRaw(value: string): { write(): Promise<unknown> } };
+};
 export type MainDependencies = {
-  artifactClient(): {
-    uploadArtifact(name: string, files: string[], rootDirectory: string): Promise<ArtifactResult>;
-  };
-  cacheClient?(): CacheClient;
-  comment?(options: {
-    body: string;
-    identity: NonNullable<GitHubContext["pullRequest"]>;
-    token: string;
-  }): Promise<CommentResult>;
-  context?(): GitHubContext;
-  core: {
-    exportVariable?(name: string, value: string): void;
-    getBooleanInput(name: string): boolean;
-    getInput(name: string): string;
-    notice?(message: string): void;
-    setFailed(message: string): void;
-    setOutput(name: string, value: string): void;
-    setSecret?(value: string): void;
-    summary: {
-      addRaw(value: string): { write(): Promise<unknown> };
-    };
-    warning?(message: string): void;
-  };
-  diff?(options: {
-    baselineWorkspace?: string;
-    binary: string;
-    currentArchitecture: string;
-    input: string;
-    mode: Mode;
-    outputDirectory: string;
-    workspace: string;
-  }): DiffResult;
-  home?(): string;
+  core: ActionCore;
   install(options: { token: string; version: string }): Promise<Installation>;
-  prepare?(options: {
-    binary: string;
-    input: string;
-    locked: boolean;
-    offline: boolean;
-    workspace: string;
-  }): Preparation;
-  run(options: {
-    binary: string;
-    input: string;
-    mode: Mode;
-    outputDirectory: string;
-    workspace: string;
-  }): AnalysisResult;
-  workspace(): string;
-  workflowUrl?(): string | undefined;
-};
-
-/* The Rootform home is a runner path. It is isolated per job so one workflow
-   can never observe another's external package store, and it is exported for later
-   steps instead of being published: constitution VII keeps absolute runner
-   paths out of outputs, summaries, and artifacts. */
-function isolatedHome(): string {
-  return mkdtempSync(join(process.env.RUNNER_TEMP || tmpdir(), "rootform-home-"));
-}
-
-function defaultCacheClient(): CacheClient {
-  return {
-    restore: async (paths, primary, restore) => {
-      const cache = await import("@actions/cache");
-      return cache.restoreCache([...paths], primary, [...restore]);
-    },
-    save: async (paths, primary) => {
-      const cache = await import("@actions/cache");
-      await cache.saveCache([...paths], primary);
-    },
+  environment: NodeJS.ProcessEnv;
+  context(): GitHubContext;
+  runner?: CommandRunner;
+  run?(options: RunOptions): ExecutionResult;
+  comment(options: Parameters<typeof upsertPullRequestComment>[0]): Promise<CommentResult>;
+  artifactClient(): {
+    uploadArtifact(
+      name: string,
+      files: string[],
+      directory: string,
+      options: { retentionDays: number },
+    ): Promise<UploadArtifactResponse>;
   };
-}
-
-const defaultDependencies: MainDependencies = {
-  artifactClient: () => new DefaultArtifactClient(),
-  cacheClient: defaultCacheClient,
-  comment: upsertPullRequestComment,
-  context: readGitHubContext,
+  cacheClient(): CacheClient;
+};
+const defaults: MainDependencies = {
   core,
-  diff: runDiff,
-  home: isolatedHome,
   install: installRootform,
-  prepare: runPreparation,
-  run: runAnalysis,
-  workspace: () => resolve(process.env.GITHUB_WORKSPACE || process.cwd()),
-  workflowUrl: readWorkflowUrl,
+  environment: process.env,
+  context: readGitHubContext,
+  comment: upsertPullRequestComment,
+  artifactClient: () => new DefaultArtifactClient(),
+  cacheClient: () => ({
+    restore: async (paths, primary, restore) =>
+      (await import("@actions/cache")).restoreCache([...paths], primary, [...restore]),
+    save: async (paths, primary) => {
+      await (await import("@actions/cache")).saveCache([...paths], primary);
+    },
+  }),
 };
 
-function modeInput(actionCore: MainDependencies["core"]): Mode {
-  const mode = actionCore.getInput("mode") || "source";
-  if (mode !== "source" && mode !== "plan") {
-    throw new Error(`mode must be source or plan, got ${mode}`);
-  }
-  return mode;
+function booleanInput(actionCore: ActionCore, name: string, fallback = false): boolean {
+  const value = actionCore.getInput(name);
+  if (!value) return fallback;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`${name} must be true or false`);
+}
+function lines(actionCore: ActionCore, name: string): string[] {
+  return actionCore
+    .getInput(name)
+    .split(/\r?\n/u)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+export function sanitized(error: unknown, roots: string[], secrets: string[]): string {
+  let value = error instanceof Error ? error.message : String(error);
+  for (const secret of [...new Set(secrets.filter(Boolean))].sort((a, b) => b.length - a.length))
+    value = value.replaceAll(secret, "***");
+  for (const root of roots.filter(Boolean).sort((a, b) => b.length - a.length))
+    value = value.replaceAll(root, "<runner-path>");
+  return value.slice(0, 12_000);
 }
 
-function inside(workspace: string, path: string): boolean {
-  const prefix = workspace.endsWith(sep) ? workspace : `${workspace}${sep}`;
-  return path === workspace || path.startsWith(prefix);
-}
-
-function rejectSymlinkTraversal(workspace: string, input: string, label: string): void {
-  let candidate = workspace;
-  for (const component of input.split(/[\\/]/u)) {
-    if (!component || component === ".") continue;
-    candidate = resolve(candidate, component);
-    if (existsSync(candidate) && lstatSync(candidate).isSymbolicLink()) {
-      throw new Error(`${label} may not traverse a symbolic link`);
-    }
-  }
-}
-
-export function containedInput(
-  workspace: string,
-  input: string,
-  kind: "directory" | "file",
-  label = "path",
-): string {
-  if (!input || isAbsolute(input)) throw new Error(`${label} must be workspace-relative`);
-  const resolved = resolve(workspace, input);
-  if (!inside(workspace, resolved)) throw new Error(`${label} must stay inside workspace`);
-  rejectSymlinkTraversal(workspace, input, label);
-  if (!existsSync(resolved)) throw new Error(`${label} does not exist`);
-  const stat = lstatSync(resolved);
-  if (kind === "directory" && !stat.isDirectory()) throw new Error(`${label} must be a directory`);
-  if (kind === "file" && !stat.isFile()) throw new Error(`${label} must be a regular file`);
-  return resolved;
-}
-
-export function containedOutput(workspace: string, input: string): string {
-  if (!input || isAbsolute(input)) throw new Error("output-directory must be workspace-relative");
-  const output = resolve(workspace, input);
-  if (!inside(workspace, output) || output === workspace) {
-    throw new Error("output-directory must stay inside workspace");
-  }
-  rejectSymlinkTraversal(workspace, input, "output-directory");
-  if (existsSync(output)) throw new Error("output-directory already exists");
-  return output;
-}
-
-function relativeOutput(workspace: string, path: string): string {
-  const output = relative(workspace, path).replaceAll("\\", "/");
-  return output || ".";
-}
-
-function sanitized(error: unknown, workspace: string, secrets: string[]): string {
-  const message = error instanceof Error ? error.message : String(error);
-  const masked = [...new Set(secrets)]
-    .sort((left, right) => right.length - left.length)
-    .reduce((result, value) => result.replaceAll(value, "***"), message);
-  const privateRoots = [
-    workspace,
-    process.env.RUNNER_TEMP,
-    process.env.RUNNER_TOOL_CACHE,
-    process.env.HOME,
-    process.env.USERPROFILE,
-  ].filter((value): value is string => Boolean(value));
-  return privateRoots.reduce((result, value) => result.replaceAll(value, "<runner-path>"), masked);
-}
-
-function annotation(
-  actionCore: MainDependencies["core"],
-  diffExitCode: number | undefined,
-  policyExitCode: number,
-): void {
-  const changed = diffExitCode === 1;
-  const violations = policyExitCode === 1;
-  if (changed || violations) {
-    const message =
-      changed && violations
-        ? "Rootform detected architecture changes and policy violations."
-        : changed
-          ? "Rootform detected architecture changes."
-          : "Rootform detected policy violations.";
-    actionCore.warning?.(message);
-    return;
-  }
-  actionCore.notice?.(
-    diffExitCode === undefined
-      ? "Rootform policy checks passed."
-      : "Rootform architecture is unchanged and policy checks passed.",
-  );
-}
-
-function reportOptions(options: {
-  artifactUrl?: string;
-  baselinePath?: string;
-  commentState?: string;
-  context: GitHubContext;
-  currentPath: string;
-  diffResult?: DiffResult;
-  mode: Mode;
-  policyExitCode: number;
-  policyMarkdown: string;
-  preparation: Preparation;
-  lockPath?: string;
-  version: string;
-}): ReportOptions {
-  return {
-    artifactUrl: options.artifactUrl,
-    baseSha: options.context.pullRequest?.baseSha,
-    baselinePath: options.baselinePath,
-    commentState: options.commentState,
-    currentPath: options.currentPath,
-    diffExitCode: options.diffResult?.exitCode,
-    diffMarkdown: options.diffResult
-      ? readFileSync(options.diffResult.paths.markdown, "utf8")
-      : undefined,
-    headSha: options.context.pullRequest?.headSha,
-    mode: options.mode,
-    policyExitCode: options.policyExitCode,
-    policyMarkdown: options.policyMarkdown,
-    preparation: {
-      downloadedBytes: options.preparation.downloadedBytes,
-      dialects: options.preparation.dialects,
-      lockPath: options.lockPath,
-      policyPacks: options.preparation.policyPacks,
-      preparationMode: options.preparation.preparationMode,
-    },
-    version: options.version,
-    workflowUrl: options.context.workflowUrl,
-  };
-}
-
-export async function main(dependencies: MainDependencies = defaultDependencies): Promise<void> {
+export async function main(
+  kind: ActionKind = "main",
+  dependencies: MainDependencies = defaults,
+): Promise<void> {
   const actionCore = dependencies.core;
-  const workspace = resolve(dependencies.workspace());
-  const releaseToken = actionCore.getInput("github-token");
-  const pullRequestToken = actionCore.getInput("pull-request-token");
-  const secrets = [releaseToken, pullRequestToken].filter(Boolean);
-  for (const secret of secrets) actionCore.setSecret?.(secret);
-  let commandOutput: "diff-exit-code" | "exit-code" | undefined;
+  const env = dependencies.environment;
+  const workspace = resolve(env.GITHUB_WORKSPACE || process.cwd());
+  const temporary = resolve(env.RUNNER_TEMP || tmpdir());
+  const token = actionCore.getInput("github-token");
+  if (token) actionCore.setSecret(token);
+  const roots = [
+    workspace,
+    temporary,
+    env.RUNNER_TOOL_CACHE || "",
+    env.HOME || "",
+    env.USERPROFILE || "",
+  ];
+  const failures: unknown[] = [];
+  let installation: Installation | undefined;
+  let directory: string | undefined;
+  let execution: ExecutionResult | undefined;
+  let artifactUrl: string | undefined;
+  let context: GitHubContext = { eventName: "" };
+  let commentState: string | undefined;
+  const business = kind !== "setup" && kind !== "init";
+  let summary = false;
+  let upload = false;
+  let commenting = false;
 
   try {
-    const installation = await dependencies.install({
-      token: releaseToken,
-      version: actionCore.getInput("version") || "latest",
-    });
+    summary = business ? booleanInput(actionCore, "summary", true) : false;
+    upload = business ? booleanInput(actionCore, "upload-artifact", true) : false;
+    commenting = kind === "main" ? booleanInput(actionCore, "comment") : false;
+    if (kind !== "setup" && env.GITHUB_EVENT_NAME === "pull_request_target")
+      throw new Error(
+        "Use pull_request with minimal permissions; pull_request_target execution is not supported",
+      );
+    const requested = actionCore.getInput("version") || env.ROOTFORM_VERSION || "";
+    installation = await dependencies.install({ token, version: requested });
     actionCore.setOutput("version", installation.version);
-
-    const mode = modeInput(actionCore);
-    const input = actionCore.getInput("path") || ".";
-    const inputPath = containedInput(workspace, input, mode === "source" ? "directory" : "file");
-    const analysisWorkspace = mode === "source" ? inputPath : workspace;
-    const analysisInput = mode === "source" ? "." : relativeOutput(workspace, inputPath);
-    const currentPath = relativeOutput(workspace, inputPath);
-    const outputName = actionCore.getInput("output-directory") || "rootform-results";
-    const outputDirectory = containedOutput(workspace, outputName);
-
-    /* Explicit preparation verifies exact non-embedded lock selections before
-       analysis. Supplied semantics stay inside the installed binary. */
-    const locked = actionCore.getBooleanInput("locked");
-    const offline = actionCore.getBooleanInput("offline");
-    const home = (dependencies.home ?? isolatedHome)();
-    actionCore.exportVariable?.("ROOTFORM_HOME", home);
-    process.env.ROOTFORM_HOME = home;
-
-    const projectRoot = mode === "source" ? inputPath : workspace;
-    const lockFile = join(projectRoot, LOCK_FILE);
-    const keys = cacheKeys({
-      lockPath: lockFile,
-      mode:
-        locked && offline ? "locked-offline" : locked ? "locked" : offline ? "offline" : "default",
-      platform: `${process.platform}-${process.arch}`,
-      runId: process.env.GITHUB_RUN_ID,
-      version: installation.version,
-    });
-    const cacheEnabled = actionCore.getBooleanInput("cache");
-    const cacheClient = cacheEnabled
-      ? (dependencies.cacheClient ?? defaultCacheClient)()
-      : undefined;
-    const cacheOutcome = cacheClient
-      ? await restoreDependencyCache({
-          client: cacheClient,
-          home,
-          keys,
-          warn: actionCore.warning,
-        })
-      : { restored: false };
-
-    /* A preparation failure is not a check result: it never publishes an
-       analysis exit code, and no analysis command runs after it. */
-    const preparation = (dependencies.prepare ?? runPreparation)({
-      binary: installation.binary,
-      input: ".",
-      locked,
-      offline,
-      workspace: projectRoot,
-    });
-    actionCore.setOutput("preparation-mode", preparation.preparationMode);
-    const lockPath = existsSync(lockFile) ? relativeOutput(workspace, lockFile) : undefined;
-    if (lockPath) actionCore.setOutput("lock-path", lockPath);
-
-    if (cacheClient) {
-      await saveDependencyCache({
-        client: cacheClient,
-        home,
-        keys,
-        outcome: cacheOutcome,
-        warn: actionCore.warning,
-      });
-    }
-
-    commandOutput = "exit-code";
-    const result = dependencies.run({
-      binary: installation.binary,
-      input: analysisInput,
-      mode,
-      outputDirectory,
-      workspace: analysisWorkspace,
-    });
-    commandOutput = undefined;
-    actionCore.setOutput("exit-code", String(result.exitCode));
-
-    if (result.exitCode === 2 || result.exitCode === 3) {
-      actionCore.setFailed(`Rootform check exited ${result.exitCode}`);
+    actionCore.exportVariable("ROOTFORM_VERSION", installation.version);
+    env.ROOTFORM_VERSION = installation.version;
+    if (kind === "setup") {
+      actionCore.setOutput("sha256", installation.sha256);
       return;
     }
-
-    const reportDiff = actionCore.getBooleanInput("report-diff");
-    let baselinePath: string | undefined;
-    let baselineWorkspace: string | undefined;
-    let diffResult: DiffResult | undefined;
-    if (reportDiff) {
-      if (mode === "source") {
-        const baselineInput = actionCore.getInput("baseline-path");
-        if (!baselineInput) throw new Error("baseline-path is required for source diff reporting");
-        baselineWorkspace = containedInput(workspace, baselineInput, "directory", "baseline-path");
-        baselinePath = relativeOutput(workspace, baselineWorkspace);
-      }
-      commandOutput = "diff-exit-code";
-      diffResult = (dependencies.diff ?? runDiff)({
-        baselineWorkspace,
-        binary: installation.binary,
-        currentArchitecture: result.paths.architecture,
-        input: analysisInput,
-        mode,
-        outputDirectory,
-        workspace: analysisWorkspace,
-      });
-      commandOutput = undefined;
-      actionCore.setOutput("diff-exit-code", String(diffResult.exitCode));
-      actionCore.setOutput("diff-json", relativeOutput(workspace, diffResult.paths.json));
-      actionCore.setOutput("diff-markdown", relativeOutput(workspace, diffResult.paths.markdown));
-      if (diffResult.paths.baselineArchitecture) {
-        actionCore.setOutput(
-          "baseline-architecture",
-          relativeOutput(workspace, diffResult.paths.baselineArchitecture),
-        );
-      }
-      if (diffResult.paths.baselineHtml) {
-        actionCore.setOutput(
-          "baseline-html",
-          relativeOutput(workspace, diffResult.paths.baselineHtml),
-        );
-      }
+    mkdirSync(temporary, { recursive: true });
+    const home = env.ROOTFORM_HOME ? resolve(env.ROOTFORM_HOME) : join(temporary, "rootform-home");
+    mkdirSync(home, { recursive: true });
+    actionCore.exportVariable("ROOTFORM_HOME", home);
+    env.ROOTFORM_HOME = home;
+    const projectInput = actionCore.getInput("project");
+    const project = containedInput(workspace, projectInput || ".", "directory", "project");
+    const locked = booleanInput(actionCore, "locked");
+    const offline = booleanInput(actionCore, "offline");
+    const cacheEnabled = booleanInput(actionCore, "cache", true);
+    const input = actionCore.getInput("input");
+    const before = actionCore.getInput("before");
+    const after = actionCore.getInput("after");
+    const file = (value: string, name: string) =>
+      value ? containedInput(workspace, value, "file", name, temporary) : undefined;
+    const inputFile = file(input, "input");
+    const beforeFile = file(before, "before");
+    const afterFile = file(after, "after");
+    const comparing = kind === "compare" || (kind === "main" && Boolean(before || after));
+    if (business) {
+      if (
+        comparing
+          ? !beforeFile || !afterFile || Boolean(inputFile)
+          : !inputFile || Boolean(beforeFile || afterFile)
+      )
+        throw new Error("Supply input, or both before and after, with no conflicting files");
     }
+    const policies = lines(actionCore, "policy");
+    const policyPacks = lines(actionCore, "policy-pack").map((value) => {
+      const path = resolve(workspace, value);
+      return containedInput(
+        workspace,
+        value,
+        lstatSync(path).isDirectory() ? "directory" : "file",
+        "policy-pack",
+        temporary,
+      );
+    });
+    const checking =
+      kind === "check" ||
+      (kind === "main" &&
+        (booleanInput(actionCore, "check") || policies.length > 0 || policyPacks.length > 0));
+    const operands = comparing ? [beforeFile, afterFile] : [inputFile];
+    const raw = operands.some((path) => path && !savedFormHint(path));
+    if (business && !raw && !checking && (projectInput || locked || offline))
+      throw new Error(
+        "project, locked and offline govern raw evidence or Policy selection; saved Forms reopen alone",
+      );
+    const planFile = file(actionCore.getInput("plan-file"), "plan-file");
+    const beforePlanFile = file(actionCore.getInput("before-plan-file"), "before-plan-file");
+    const afterPlanFile = file(actionCore.getInput("after-plan-file"), "after-plan-file");
+    if (planFile && (!inputFile || savedFormHint(inputFile)))
+      throw new Error("plan-file requires a plan export input");
+    if (
+      !comparing &&
+      (beforePlanFile ||
+        afterPlanFile ||
+        actionCore.getInput("before-stage") ||
+        actionCore.getInput("after-stage"))
+    )
+      throw new Error("Comparison evidence and stages require before and after");
+    if (comparing && planFile)
+      throw new Error("Use before-plan-file or after-plan-file for comparison evidence");
+    const needsPreparation = kind === "init" || raw || checking;
+    if (needsPreparation) {
+      const lock = join(project, "rootform.lock");
+      const cache = cacheEnabled && existsSync(lock) ? dependencies.cacheClient() : undefined;
+      const keys = cache
+        ? cacheKeys({
+            lockPath: lock,
+            platform: `${process.platform}-${process.arch}`,
+            version: installation.version,
+          })
+        : undefined;
+      const outcome =
+        cache && keys
+          ? await restoreDependencyCache({ client: cache, home, keys, warn: actionCore.warning })
+          : { restored: false };
+      runPreparation({
+        binary: installation.binary,
+        project,
+        workspace,
+        locked,
+        offline,
+        runner: dependencies.runner,
+      });
+      if (cache && keys)
+        await saveDependencyCache({ client: cache, home, keys, outcome, warn: actionCore.warning });
+    }
+    if (kind === "init") return;
+    directory = mkdtempSync(join(temporary, "rootform-results-"));
+    execution = (dependencies.run ?? runBusiness)({
+      binary: installation.binary,
+      kind,
+      workspace,
+      project,
+      locked,
+      input: inputFile,
+      before: beforeFile,
+      after: afterFile,
+      planFile,
+      beforePlanFile,
+      afterPlanFile,
+      stage: actionCore.getInput("stage") || undefined,
+      beforeStage: actionCore.getInput("before-stage") || undefined,
+      afterStage: actionCore.getInput("after-stage") || undefined,
+      side: actionCore.getInput("side") || undefined,
+      policies,
+      policyPacks,
+      check: checking,
+      outputDirectory: directory,
+      runner: dependencies.runner,
+    });
+    if (execution.failure) failures.push(execution.failure);
+    const report = combineReports(execution.reports, directory);
+    if (report) execution.paths.report = report;
+    for (const [name, path] of Object.entries(execution.paths))
+      if (path) actionCore.setOutput(name, path);
+    if (execution.exitCode !== undefined)
+      actionCore.setOutput("exit-code", String(execution.exitCode));
+    context = dependencies.context();
+  } catch (error) {
+    failures.push(error);
+  }
 
-    actionCore.setOutput("architecture", relativeOutput(workspace, result.paths.architecture));
-    actionCore.setOutput("html", relativeOutput(workspace, result.paths.html));
-    actionCore.setOutput("policy-json", relativeOutput(workspace, result.paths.policyJson));
-    actionCore.setOutput("sarif", relativeOutput(workspace, result.paths.sarif));
-
-    let artifactUrl: string | undefined;
-    if (actionCore.getBooleanInput("upload-artifact")) {
-      const name = actionCore.getInput("artifact-name") || "rootform";
-      const files = [
-        result.paths.architecture,
-        result.paths.html,
-        result.paths.policyJson,
-        result.paths.sarif,
-        ...(diffResult?.paths.baselineArchitecture ? [diffResult.paths.baselineArchitecture] : []),
-        ...(diffResult?.paths.baselineHtml ? [diffResult.paths.baselineHtml] : []),
-        ...(diffResult ? [diffResult.paths.json, diffResult.paths.markdown] : []),
-      ];
+  // Each evidence channel is attempted before the gate, even if another
+  // transport fails. The upload inventory is derived files only, never a glob.
+  if (upload && execution && directory && Object.keys(execution.paths).length > 0) {
+    try {
+      const value = actionCore.getInput("retention-days") || "7";
+      if (!/^[1-9][0-9]*$/u.test(value) || Number(value) > 90)
+        throw new Error("retention-days must be an integer from 1 to 90");
+      const staging = join(directory, "artifact");
+      mkdirSync(staging);
+      const files: string[] = [];
+      for (const [name, path] of Object.entries(execution.paths)) {
+        if (!path || lstatSync(path).isSymbolicLink() || !lstatSync(path).isFile())
+          throw new Error("Evidence file must remain a regular file");
+        const filenames: Record<string, string> = {
+          form: "form.json",
+          result: "result.json",
+          report: "report.md",
+          html: "explorer.html",
+          sarif: "results.sarif",
+        };
+        const filename = filenames[name];
+        if (!filename) throw new Error("Unexpected evidence output");
+        const target = join(staging, filename);
+        copyFileSync(path, target);
+        files.push(target);
+      }
+      const name =
+        actionCore.getInput("artifact-name") ||
+        `rootform-${kind}-${env.GITHUB_JOB || "job"}-${basename(directory)}`;
       const artifact = await dependencies
         .artifactClient()
-        .uploadArtifact(name, files, outputDirectory);
-      if (artifact.id === undefined) throw new Error("artifact upload returned no identifier");
+        .uploadArtifact(name, files, staging, { retentionDays: Number(value) });
+      if (!Number.isSafeInteger(artifact.id) || !artifact.id || artifact.id < 1) {
+        throw new Error("GitHub artifact upload returned no valid artifact identifier");
+      }
       actionCore.setOutput("artifact-id", String(artifact.id));
-      const runUrl = (dependencies.workflowUrl ?? readWorkflowUrl)();
-      artifactUrl =
-        artifact.artifactUrl ?? (runUrl ? `${runUrl}/artifacts/${artifact.id}` : undefined);
-      if (artifactUrl) {
+      if (context.workflowUrl) {
+        artifactUrl = `${context.workflowUrl}/artifacts/${artifact.id}`;
         actionCore.setOutput("artifact-url", artifactUrl);
       }
+    } catch (error) {
+      failures.push(error);
     }
-
-    const policyMarkdown = readFileSync(result.paths.markdown, "utf8");
-    const reportingEnabled = reportDiff || Boolean(pullRequestToken);
-    if (reportingEnabled) {
-      const githubContext = (dependencies.context ?? readGitHubContext)();
-      const shared = {
-        artifactUrl,
-        baselinePath,
-        context: githubContext,
-        currentPath,
-        diffResult,
-        lockPath,
-        mode,
-        policyExitCode: result.exitCode,
-        policyMarkdown,
-        preparation,
-        version: installation.version,
-      };
-      let commentState: string;
-      if (!githubContext.pullRequest) {
-        commentState = "Skipped — workflow event is not `pull_request`";
-      } else if (!githubContext.pullRequest.sameRepository) {
-        commentState = "Skipped — fork pull request";
-      } else if (!pullRequestToken) {
-        commentState = "Not requested";
-      } else {
-        try {
-          const comment = await (dependencies.comment ?? upsertPullRequestComment)({
-            body: renderReport(reportOptions(shared), "comment"),
-            identity: githubContext.pullRequest,
-            token: pullRequestToken,
-          });
-          const action = comment.action === "created" ? "Created" : "Updated";
-          commentState = `${action} — [open comment](${comment.htmlUrl})`;
-        } catch (error) {
-          commentState = "Failed — see workflow log";
-          await actionCore.summary
-            .addRaw(renderReport(reportOptions({ ...shared, commentState }), "summary"))
-            .write();
-          throw error;
-        }
-      }
-      await actionCore.summary
-        .addRaw(renderReport(reportOptions({ ...shared, commentState }), "summary"))
-        .write();
-      annotation(actionCore, diffResult?.exitCode, result.exitCode);
-    } else {
-      await actionCore.summary.addRaw(policyMarkdown).write();
-    }
-
-    const policyFailure = shouldFail(
-      result.exitCode,
-      actionCore.getBooleanInput("fail-on-violations"),
-    );
-    const diffFailure = diffResult?.exitCode === 1 && actionCore.getBooleanInput("fail-on-changes");
-    if (policyFailure && diffFailure) {
-      actionCore.setFailed("Rootform diff exited 1 and Rootform check exited 1");
-    } else if (diffFailure) {
-      actionCore.setFailed("Rootform diff exited 1");
-    } else if (policyFailure) {
-      actionCore.setFailed(`Rootform check exited ${result.exitCode}`);
-    }
+  }
+  let markdown: string | undefined;
+  try {
+    markdown = execution?.paths.report ? readFileSync(execution.paths.report, "utf8") : undefined;
   } catch (error) {
-    if (error instanceof RootformCommandError && commandOutput) {
-      actionCore.setOutput(commandOutput, String(error.exitCode));
+    failures.push(error);
+  }
+  const report = (limit?: number) =>
+    renderReport({
+      version: installation?.version || "not installed",
+      markdown,
+      artifactUrl,
+      workflowUrl: context.workflowUrl,
+      commentState,
+      limit,
+    });
+  if (commenting) {
+    try {
+      if (!context.pullRequest?.sameRepository || context.eventName !== "pull_request")
+        commentState = "skipped (not an eligible same-repository pull_request)";
+      else {
+        const result = await dependencies.comment({
+          token,
+          identity: context.pullRequest,
+          body: `${REPORT_MARKER}\n${report(60_000)}`,
+          runId: context.runId,
+          runAttempt: context.runAttempt,
+        });
+        commentState = result.action === "skipped" ? `skipped (${result.reason})` : result.action;
+      }
+    } catch (error) {
+      failures.push(error);
+      commentState = "failed; see step diagnostic";
     }
-    actionCore.setFailed(sanitized(error, workspace, secrets));
+  }
+  if (summary) {
+    try {
+      await actionCore.summary.addRaw(report()).write();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length > 0)
+    actionCore.setFailed(failures.map((error) => sanitized(error, roots, [token])).join("\n"));
+}
+
+export async function runEntry(kind: ActionKind): Promise<void> {
+  try {
+    await main(kind);
+  } catch (error) {
+    core.setFailed(
+      sanitized(
+        error,
+        [process.env.GITHUB_WORKSPACE || "", process.env.RUNNER_TEMP || "", process.env.HOME || ""],
+        [core.getInput("github-token")],
+      ),
+    );
   }
 }

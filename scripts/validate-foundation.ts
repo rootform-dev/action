@@ -24,6 +24,7 @@ export const expectedRootScripts = {
   "hooks:install": "bun scripts/setup-dev.ts",
   test: "bun run test:tooling && bun run test:runtime",
   "test:runtime": "bun test src",
+  "test:integration": "bun scripts/integration.ts",
   "test:tooling": "bun test scripts",
   typecheck: "tsc --noEmit",
   "verify:dist": "bun scripts/verify-dist.ts",
@@ -123,9 +124,10 @@ export async function validateRootManifest(root: string): Promise<string[]> {
    unpinned runtime, would fail only after a user depends on it. */
 export async function validateActionManifests(root: string): Promise<string[]> {
   const errors: string[] = [];
-  const manifests = ["action.yml", join("setup", "action.yml")].filter((path) =>
-    existsSync(join(root, path)),
-  );
+  const manifests = [
+    "action.yml",
+    ...["setup", "init", "analyze", "compare", "check"].map((kind) => join(kind, "action.yml")),
+  ].filter((path) => existsSync(join(root, path)));
 
   for (const path of manifests) {
     let parsed: unknown;
@@ -289,6 +291,11 @@ async function main(): Promise<void> {
     "package.json",
     "action.yml",
     "setup/action.yml",
+    "init/action.yml",
+    "analyze/action.yml",
+    "compare/action.yml",
+    "check/action.yml",
+    "docs/adr/006-github-native-actions.md",
     "scripts/build.ts",
     "scripts/verify-dist.ts",
     "scripts/verify.ts",

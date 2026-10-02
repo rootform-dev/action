@@ -1,0 +1,75 @@
+name: Analyze Rootform
+description: Analyze a plan or state export, or reopen a saved Form; produce Form and reports
+author: Rootform
+inputs:
+  version:
+    description: "Exact published Rootform version; omit only to reuse an earlier Rootform Action step"
+    required: false
+    default: ""
+  github-token:
+    description: "Optional GitHub API token for release rate limits; root comment uses it only when enabled"
+    required: false
+    default: "${{ github.token }}"
+  input:
+    description: "Plan JSON, state JSON, or saved Form file"
+    required: false
+    default: ""
+  plan-file:
+    description: "Optional saved binary plan paired with input; supplied pairing must verify"
+    required: false
+    default: ""
+  stage:
+    description: "Architecture stage to present or evaluate: planned, refreshed, recorded"
+    required: false
+    default: ""
+  project:
+    description: "Rootform project directory for raw evidence or Policy Pack selection; default workspace"
+    required: false
+    default: ""
+  locked:
+    description: "Require and preserve the project rootform.lock for analysis or Policy selection"
+    required: false
+    default: "false"
+  offline:
+    description: "Prepare selected external content without network access"
+    required: false
+    default: "false"
+  cache:
+    description: "Cache verified external Dialect and Policy Pack sources selected by the project lock"
+    required: false
+    default: "true"
+  summary:
+    description: "Append CLI Markdown to GitHub Job Summary"
+    required: false
+    default: "true"
+  upload-artifact:
+    description: "Persist only Form and derived reports as one GitHub artifact"
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Optional stable artifact name; default is unique per invocation, including matrix jobs"
+    required: false
+    default: ""
+  retention-days:
+    description: "Artifact retention from 1 to 90 days, subject to repository limit"
+    required: false
+    default: "7"
+outputs:
+  version:
+    description: "Exact verified Rootform CLI version"
+  form:
+    description: "Reusable same-job path to the Form; compare returns a Comparison Form"
+  report:
+    description: "Reusable same-job path to complete CLI Markdown report"
+  html:
+    description: "Reusable same-job path to self-contained HTML Explorer"
+  artifact-id:
+    description: "Uploaded GitHub artifact ID for cross-job download"
+  artifact-url:
+    description: "Uploaded GitHub evidence artifact URL"
+runs:
+  using: node24
+  main: ../dist/analyze/index.js
+branding:
+  icon: map
+  color: blue

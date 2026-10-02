@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const CACHE_VERSION = "rootform-external-packages-v1";
+export const CACHE_VERSION = "rootform-external-packages-v2";
 
 /**
  * Only installed external selections are cached. Supplied Dialects and RF
@@ -26,26 +26,17 @@ function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-/**
- * Derives cache keys from the project lock when one exists, so a lock change
- * always produces a different entry. Without a lock the key stays coarse and
- * stable, and a run-unique suffix keeps entries from colliding.
- */
+/** Exact lock bytes identify immutable source payload. Execution mode does
+ * not change those bytes: an online warm-up must remain reusable offline.
+ * Never restore another lock's store through a coarse prefix. */
 export function cacheKeys(options: {
-  lockPath?: string;
-  mode: string;
+  lockPath: string;
   platform: string;
-  runId?: string;
   version: string;
 }): CacheKeys {
-  const scope = `${CACHE_VERSION}-${options.platform}-${options.version}-${options.mode}`;
-  const lock =
-    options.lockPath && existsSync(options.lockPath)
-      ? digest(readFileSync(options.lockPath, "utf8"))
-      : undefined;
-  if (lock) return { primary: `${scope}-lock-${lock}`, restore: [`${scope}-lock-`, `${scope}-`] };
-  const suffix = options.runId && /^[0-9]+$/u.test(options.runId) ? options.runId : "0";
-  return { primary: `${scope}-open-${suffix}`, restore: [`${scope}-open-`, `${scope}-`] };
+  const scope = `${CACHE_VERSION}-${options.platform}-${options.version}`;
+  const lock = digest(readFileSync(options.lockPath, "utf8"));
+  return { primary: `${scope}-lock-${lock}`, restore: [] };
 }
 
 export type CacheClient = {

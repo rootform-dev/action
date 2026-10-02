@@ -1,23 +1,23 @@
 name: Setup Rootform
-description: Install an exact checksum-verified Rootform CLI and add it to PATH
+description: Install and verify an exact published Rootform CLI; prepare nothing
 author: Rootform
 inputs:
   version:
-    description: Exact Rootform version or latest
-    required: false
-    default: latest
-  github-token:
-    description: Optional token for private published Rootform releases
+    description: "Exact published Rootform version; omit only to reuse an earlier Rootform Action step"
     required: false
     default: ""
+  github-token:
+    description: "Optional GitHub API token for release rate limits; root comment uses it only when enabled"
+    required: false
+    default: "${{ github.token }}"
 outputs:
   version:
-    description: Exact installed Rootform version
+    description: "Exact verified Rootform CLI version"
   sha256:
-    description: SHA-256 of installed Rootform executable
+    description: "SHA-256 of the verified installed executable"
 runs:
   using: node24
   main: ../dist/setup/index.js
 branding:
-  icon: download
+  icon: map
   color: blue
