@@ -7,3 +7,10 @@
 - T005 public qualification and lead review: Complete. Delivery tracked by Action PR 19 and create-only first-v1 workflow; both must complete before the delivery claim. Requirements 2–10.
 
 Proof and exact identities are in evidence/qualification.md. Merge/publication status is visible in the linked PR and workflow; no existing tag is moved.
+
+- T006 complete review reporting: implementation and local validation complete.
+  Markdown-producing calls request `--details`; composition preserves CLI
+  statements within one identity and collapsed audit block. Runtime tests,
+  ten published-binary integrations, full gate and bundle reproduction pass.
+  Final public consumer proof is tracked in
+  [qualification PR 3](https://github.com/rootform-dev/action-qualification/pull/3).
