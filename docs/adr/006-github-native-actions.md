@@ -116,6 +116,12 @@ reviewed merged qualified source; no existing tag moves. Immutable commit pins
 remain the reproducible/security recommendation. Future major-alias updates
 require a deliberate reviewed release decision; this task does not grant an
 unrestricted tag-rewrite policy or publish another Rootform CLI release.
+The dedicated `publish-v1.yml` maintainer dispatch bootstraps only this first
+ref: it requires the exact current dev SHA, an associated merged dev PR and a
+successful quality run at that SHA. It creates a new ref and refuses an
+existing v1. Public consumer proof and lead review must be recorded before
+dispatch. Historical semantic releases on main keep their existing contract;
+this bootstrap does not change package or CLI semantic versions.
 
 ## Sources
 

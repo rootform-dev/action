@@ -10,14 +10,16 @@ the CLI, forwards its reports, and never executes Terraform or OpenTofu.
 
 ## The v1 surface
 
-These pages describe the intended v1 consumer surface. The six refs
+The six v1 refs
 <code>rootform-dev/action@v1</code>,
 <code>rootform-dev/action/setup@v1</code>,
 <code>rootform-dev/action/init@v1</code>,
 <code>rootform-dev/action/analyze@v1</code>,
 <code>rootform-dev/action/compare@v1</code> and
-<code>rootform-dev/action/check@v1</code> will point to the same reviewed
-source commit. They will be created only after qualification and merge.
+<code>rootform-dev/action/check@v1</code> share one reviewed source commit.
+Use a full commit SHA when an immutable Action pin is required. Public
+qualification is recorded in
+[SPEC-006 evidence](specs/006-github-native-actions/evidence/qualification.md).
 
 Examples use the exact Rootform CLI release selected for qualification: the
 published prerelease
@@ -53,8 +55,9 @@ jobs:
 
 The input accepts a plan export, a state export or a saved Form. Use the
 optional <code>plan-file</code> input only with its matching plan export; a
-supplied plan pairing must verify. The Action asks Rootform for its Form and
-reports in one multi-output invocation. JavaScript does not interpret
+supplied plan pairing must verify. For plan/state input, one multi-output
+invocation produces the Form and reports. A saved Form keeps its original path
+and bytes; Rootform only renders its reports. JavaScript does not interpret
 architecture or Policy result JSON to decide what the input means or whether
 it passes.
 
@@ -98,6 +101,16 @@ Action outputs such as <code>form</code>, <code>report</code>, <code>html</code>
 steps in the same job. They may be absolute runner temporary paths; they
 contain no file bodies. For a comparison, <code>form</code> is the single
 Comparison Form path. The Action does not expose separate operand Form paths.
+
+| Entrypoint | File outputs |
+| --- | --- |
+| analyze | form, report, html |
+| compare | form (Comparison Form), report, html |
+| check | form, result, report, sarif; exact exit-code |
+| root | The outputs produced by its analyze/compare and optional check flows |
+
+All entrypoints expose the verified CLI version. Setup also exposes its
+executable sha256; business actions expose artifact-id/url when upload succeeds.
 
 Artifacts serve cross-job transfer. The <code>artifact-id</code> and
 <code>artifact-url</code> outputs identify the uploaded artifact; a same-job
@@ -172,8 +185,8 @@ again.
 
 Only the root Action supports opt-in comments, through
 <code>comment: true</code>. The comment is written only for a same-repository
-<code>pull_request</code>; fork pull requests skip the comment. Every business
-entrypoint, including explicit init, rejects <code>pull_request_target</code>
+<code>pull_request</code>; fork pull requests skip the comment. Business
+entrypoints and init reject <code>pull_request_target</code>
 before CLI installation. Commenting is supported on GitHub.com only.
 
 Commenting needs <code>pull-requests: write</code> to create or update the
@@ -234,6 +247,23 @@ Business entrypoints install the CLI and prepare content when their inputs need
 it. A separate setup or init step is not required. When setup is used, later
 steps can inherit its verified exact CLI version; all business steps in a job
 reuse the same <code>ROOTFORM_HOME</code>.
+
+Check a plan directly; no preceding analyze step is required:
+
+```yaml
+- uses: rootform-dev/action/check@v1
+  id: policies
+  with:
+    version: 0.1.0-pr.117.1
+    input: plan.json
+    policy-pack: policy-packs/team
+```
+
+Reuse a Form from an earlier action through
+`input: ${{ steps.rootform.outputs.form }}`. A downloaded Form works the same
+way. Analyze and check can reopen a Comparison Form; compare accepts only
+single-input Forms as operands. For check, `side` selects `before`, `after`, or
+`both` (CLI default). Policy selectors and pack paths accept one value per line.
 
 ## Support and scope
 

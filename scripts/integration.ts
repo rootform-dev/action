@@ -89,6 +89,29 @@ const compared = run("compare", "compare", {
   after: join(headProject, "plan.json"),
   afterPlanFile: join(headProject, "plan.tfplan"),
 });
+const comparisonDigest = digest(compared.paths.form as string);
+const reopenedComparison = run("reopen-comparison", "analyze", { input: compared.paths.form });
+assert.equal(reopenedComparison.paths.form, compared.paths.form);
+assert.equal(digest(reopenedComparison.paths.form as string), comparisonDigest);
+const rejectedDirectory = join(temporary, "reject-comparison-operand");
+mkdirSync(rejectedDirectory);
+const rejected = runBusiness({
+  binary: installation.binary,
+  kind: "compare",
+  workspace,
+  project: baseProject,
+  locked: false,
+  policies: [],
+  policyPacks: [],
+  check: false,
+  before: compared.paths.form,
+  after: analyzed.paths.form,
+  outputDirectory: rejectedDirectory,
+});
+assert.ok(rejected.failure && "exitCode" in rejected.failure);
+assert.equal(rejected.failure.exitCode, 2);
+assert.equal(rejected.paths.form, undefined);
+evidence.push({ name: "reject-comparison-operand", exitCode: 2, outputs: {} });
 run("check-direct", "check", {
   input: join(baseProject, "plan.json"),
   planFile: join(baseProject, "plan.tfplan"),

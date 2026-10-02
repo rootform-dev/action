@@ -9,8 +9,8 @@ The six refs—<code>rootform-dev/action@v1</code>,
 <code>rootform-dev/action/init@v1</code>,
 <code>rootform-dev/action/analyze@v1</code>,
 <code>rootform-dev/action/compare@v1</code> and
-<code>rootform-dev/action/check@v1</code>—will point to one reviewed source
-commit. They will be created only after qualification and merge. Examples use
+<code>rootform-dev/action/check@v1</code>—share one reviewed source
+commit. See [public qualification](../specs/006-github-native-actions/evidence/qualification.md). Examples use
 the exact published CLI prerelease selected for qualification,
 0.1.0-pr.117.1; they do not claim that stable CLI 0.1.0 has been published.
 
@@ -85,7 +85,7 @@ run.
 Normal use needs <code>contents: read</code>. Root-only PR commenting requires
 <code>pull-requests: write</code> and <code>actions: read</code>, and runs only
 on same-repository <code>pull_request</code> events. Fork comments are skipped;
-every business entrypoint, including explicit init, rejects
+business entrypoints and init reject
 <code>pull_request_target</code> before CLI installation. All reporting
 workflows for one PR must share one job-level concurrency group with
 <code>cancel-in-progress: false</code>.
