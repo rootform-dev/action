@@ -105,9 +105,11 @@ races. GitHub does not support conditional unsafe REST mutations for comments,
 so check-then-PATCH alone cannot provide an atomic guarantee. Do not pretend
 otherwise or add a second comment/lock API.
 
-Summary and comment carry CLI Markdown plus run/version/evidence links. Reports
-above GitHub limits are preserved intact as files; inline presentation explains
-its omission and links evidence. No semantic truncation/reconstruction.
+Summary and comment carry CLI Markdown plus run/version/evidence links. Markdown
+outputs always request `--details`; complete files stay available even when
+GitHub's inline limit requires omitting exhaustive disclosure contents. Primary
+CLI summaries and verdicts remain visible when they fit, with a complete-report
+link. No conclusions or counts are reconstructed from JSON.
 
 ## Versioned Action refs
 

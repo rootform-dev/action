@@ -64,6 +64,14 @@ function run(name: string, kind: BusinessKind, values: Partial<RunOptions>, expe
     assert.equal(result.failure, undefined, `${name}: ${result.failure?.message}`);
   assert.ok(result.paths.form, `${name}: missing Form`);
   for (const path of Object.values(result.paths)) assert.ok(path && statSync(path).size > 0);
+  if (result.paths.report) {
+    const report = readFileSync(result.paths.report, "utf8");
+    assert.ok(!report.includes("Each list above shows at most"), `${name}: compact CLI preview`);
+    assert.ok(
+      !/\d+ of \d+ (?:entries|evaluations) shown/u.test(report),
+      `${name}: incomplete Markdown list`,
+    );
+  }
   evidence.push({
     name,
     exitCode: result.exitCode ?? null,

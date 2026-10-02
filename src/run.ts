@@ -28,12 +28,12 @@ export const runCommand: CommandRunner = (command, cwd) => {
     env: { ...cliEnvironment(), CI: "true", NO_COLOR: "1" },
     maxBuffer: 16 * 1024 * 1024,
     timeout: 300_000,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", command[1] === "run" || command[1] === "check" ? "ignore" : "pipe", "pipe"],
     windowsHide: true,
   });
   if (result.error) throw new Error("Rootform process failed or exceeded its execution limit");
   if (result.status === null) throw new Error("Rootform process ended without an exit status");
-  return { exitCode: result.status, stderr: result.stderr, stdout: result.stdout };
+  return { exitCode: result.status, stderr: result.stderr, stdout: result.stdout ?? undefined };
 };
 
 // This transport hint reads no architecture or Policy result. The CLI still
@@ -95,7 +95,11 @@ export function runBusiness(options: RunOptions): ExecutionResult {
   const pair = (file: string | undefined) =>
     file ? ["--plan-file", file, "--require-enrichment"] : [];
   const invoke = (args: string[], outputs: string[], check = false, cwd = options.workspace) => {
-    const result = runner([options.binary, ...args, "--no-pager", "--color", "never"], cwd);
+    const detailFlags = outputs.some((path) => path.endsWith(".md")) ? ["--details"] : [];
+    const result = runner(
+      [options.binary, ...args, ...detailFlags, "--no-pager", "--color", "never"],
+      cwd,
+    );
     if (check) exitCode = result.exitCode;
     if (result.exitCode !== 0) {
       throw new RootformCommandError(

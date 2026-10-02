@@ -58,6 +58,7 @@ describe("current CLI command transport", () => {
     expect(f.commands[0]?.slice(0, 4)).toEqual(["rootform", "run", "plan.json", "--no-serve"]);
     expect(f.commands[0]?.filter((v) => v === "-o")).toHaveLength(3);
     expect(f.commands.flat()).not.toContain("--plan");
+    expect(f.commands[0]).toContain("--details");
     expect(f.result.exitCode).toBeUndefined();
   });
 
@@ -101,6 +102,7 @@ describe("current CLI command transport", () => {
   test("raw check analyzes once then evaluates once with three outputs", () => {
     const f = scenario({ kind: "check", side: "after", policies: ["security/*"] });
     expect(f.commands.map((c) => c[1])).toEqual(["run", "check"]);
+    expect(f.commands[1]).toContain("--details");
     expect(f.commands[0]?.filter((v) => v === "-o")).toHaveLength(1);
     expect(f.commands[1]?.filter((v) => v === "-o")).toHaveLength(3);
     expect(f.commands[1]?.[2]).toBe("form.json");
