@@ -216,18 +216,42 @@ export async function validateReleaseConfiguration(root: string): Promise<string
     if (!names.includes(required)) errors.push(`release plugin is missing: ${required}`);
   }
 
-  /* Pre-1.0 stays pre-1.0: a breaking change must raise the minor, because the
-     default major bump would publish a v1 nobody accepted. */
+  /* A breaking change is a new major version: consumers pinned to a major tag
+     must never receive one. semantic-release's default rules already do this,
+     so any custom rule may only confirm it. */
   const analyzer = plugins.find(
     (plugin) => Array.isArray(plugin) && plugin[0] === "@semantic-release/commit-analyzer",
   );
   const analyzerOptions = Array.isArray(analyzer) ? analyzer[1] : undefined;
   const releaseRules = isPlainRecord(analyzerOptions) ? analyzerOptions.releaseRules : undefined;
-  const breakingRule = Array.isArray(releaseRules)
-    ? releaseRules.find((rule) => isPlainRecord(rule) && rule.breaking === true)
+  const weakerBreakingRule = Array.isArray(releaseRules)
+    ? releaseRules.find(
+        (rule) => isPlainRecord(rule) && rule.breaking === true && rule.release !== "major",
+      )
     : undefined;
-  if (!isPlainRecord(breakingRule) || breakingRule.release !== "minor")
-    errors.push("release rules must map a breaking change to a minor bump while the action is 0.x");
+  if (weakerBreakingRule !== undefined)
+    errors.push("release rules must publish a breaking change as a new major version");
+
+  /* main moves only by promotion; publishing is a separate, deliberate dispatch. */
+  const workflowPath = join(root, ".github", "workflows", "release.yml");
+  if (existsSync(workflowPath)) {
+    let workflow: unknown;
+    try {
+      workflow = Bun.YAML.parse(await Bun.file(workflowPath).text());
+    } catch (error) {
+      errors.push(
+        `invalid release workflow: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    const triggers = isPlainRecord(workflow) ? (workflow.on ?? workflow.true) : undefined;
+    const names = isPlainRecord(triggers)
+      ? Object.keys(triggers)
+      : Array.isArray(triggers)
+        ? triggers.map(String)
+        : [String(triggers)];
+    if (names.length !== 1 || names[0] !== "workflow_dispatch")
+      errors.push(`release workflow must run only on workflow_dispatch, got: ${names.join(", ")}`);
+  }
 
   const manifestPath = join(root, "package.json");
   if (existsSync(manifestPath)) {
@@ -266,6 +290,7 @@ async function main(): Promise<void> {
     ".github/dependabot.yml",
     ".github/pull_request_template.md",
     ".github/workflows/ci.yml",
+    ".github/workflows/promote.yml",
     ".github/workflows/published-release-integration.yml",
     ".github/workflows/release.yml",
     ".gitleaks.toml",
@@ -296,6 +321,7 @@ async function main(): Promise<void> {
     "compare/action.yml",
     "check/action.yml",
     "docs/adr/006-github-native-actions.md",
+    "docs/adr/007-promoted-releases-and-major-tags.md",
     "scripts/build.ts",
     "scripts/verify-dist.ts",
     "scripts/verify.ts",

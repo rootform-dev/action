@@ -135,6 +135,9 @@ unavailable, report the exact missing proof; do not substitute confidence.
 - Branch from `dev` using `type/NNN-short-kebab-slug` for product specs and
   `type/short-kebab-slug` for repository-only work.
 - Open pull requests into `dev`; use squash merge.
+- `main` receives only promotions: a pull request from `dev` into `main`,
+  validated by `quality` on its exact head and fast-forwarded by
+  `promote.yml`. Hotfixes go through `dev` and a promotion.
 - Use Conventional Commits: `type(scope): imperative summary`.
 - Keep subject at most 100 characters, lower-case, and without trailing period.
 - Do not push directly to `main` or `dev`.
@@ -146,8 +149,11 @@ unavailable, report the exact missing proof; do not substitute confidence.
 
 ## Versioning
 
-Published versions and major tags are owner decisions. Automation follows the
-accepted release contract and never moves an existing tag.
+Publishing is an owner decision: `release.yml` runs only when dispatched on
+`main`, after `quality` and a stable published release integration on that
+commit. semantic-release maps `fix`, `feat` and breaking changes to patch,
+minor and major. The same run moves the major tag forward to the new release;
+version tags never move. See `docs/adr/007-promoted-releases-and-major-tags.md`.
 
 ## Definition of done
 

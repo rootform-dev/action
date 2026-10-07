@@ -212,19 +212,22 @@ describe("foundation validation", () => {
         branches: ["main"],
         tagFormat: RELEASE_TAG_FORMAT,
         plugins: [
-          [
-            "@semantic-release/commit-analyzer",
-            { preset: "conventionalcommits", releaseRules: [{ breaking: true, release: "minor" }] },
-          ],
+          ["@semantic-release/commit-analyzer", { preset: "conventionalcommits" }],
           ["@semantic-release/release-notes-generator", { preset: "conventionalcommits" }],
           ["@semantic-release/github", { successComment: false }],
         ],
       };
     }
 
-    function releaseSandbox(config: Record<string, unknown> = releaseConfig()): string {
+    const dispatchOnly = "name: release\non:\n  workflow_dispatch:\njobs: {}\n";
+
+    function releaseSandbox(
+      config: Record<string, unknown> = releaseConfig(),
+      workflow = dispatchOnly,
+    ): string {
       const dir = validSandbox();
       writeJson(join(dir, ".releaserc.json"), config);
+      writeText(join(dir, ".github", "workflows", "release.yml"), workflow);
       return dir;
     }
 
@@ -280,14 +283,39 @@ describe("foundation validation", () => {
       expect(joined).toContain("release plugin is missing: @semantic-release/github");
     });
 
-    test("rejects a breaking change that would publish a major release", async () => {
+    test("accepts a custom rule that keeps a breaking change major", async () => {
       const config = releaseConfig();
       config.plugins = [
-        ["@semantic-release/commit-analyzer", { preset: "conventionalcommits" }],
+        [
+          "@semantic-release/commit-analyzer",
+          { preset: "conventionalcommits", releaseRules: [{ breaking: true, release: "major" }] },
+        ],
+        ["@semantic-release/github", {}],
+      ];
+      expect(await validateReleaseConfiguration(releaseSandbox(config))).toEqual([]);
+    });
+
+    test("rejects a rule that would ship a breaking change under the current major", async () => {
+      const config = releaseConfig();
+      config.plugins = [
+        [
+          "@semantic-release/commit-analyzer",
+          { preset: "conventionalcommits", releaseRules: [{ breaking: true, release: "minor" }] },
+        ],
         ["@semantic-release/github", {}],
       ];
       expect((await validateReleaseConfiguration(releaseSandbox(config))).join("\n")).toContain(
-        "release rules must map a breaking change to a minor bump while the action is 0.x",
+        "release rules must publish a breaking change as a new major version",
+      );
+    });
+
+    test("rejects a release workflow that publishes on push", async () => {
+      const workflow =
+        "name: release\non:\n  push:\n    branches: [main]\n  workflow_dispatch:\njobs: {}\n";
+      expect(
+        (await validateReleaseConfiguration(releaseSandbox(releaseConfig(), workflow))).join("\n"),
+      ).toContain(
+        "release workflow must run only on workflow_dispatch, got: push, workflow_dispatch",
       );
     });
 

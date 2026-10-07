@@ -121,12 +121,12 @@ describe("bundle gate commands", () => {
 });
 
 describe("CI product spec metadata", () => {
-  test("is supplied only while pull request branch identity still exists", async () => {
+  test("is supplied only where changes enter dev", async () => {
     const workflow = await Bun.file(join(repository, ".github/workflows/ci.yml")).text();
     expect(workflow).toContain(
-      "github.event_name == 'pull_request' && github.event.pull_request.base.sha || ''",
+      "github.base_ref == 'dev' && github.event.pull_request.base.sha || ''",
     );
-    expect(workflow).toContain("github.event_name == 'pull_request' && github.head_ref || ''");
+    expect(workflow).toContain("github.base_ref == 'dev' && github.head_ref || ''");
     expect(workflow).not.toContain("github.head_ref || github.ref_name");
   });
 

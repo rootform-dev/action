@@ -1,0 +1,108 @@
+name: promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Open pull request from dev into main whose exact head passed quality
+        required: true
+        type: number
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-main
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Fast-forward main to validated dev
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Verify exact validated promotion
+        id: promotion
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PULL_REQUEST: ${{ inputs.pull_request }}
+          REQUIRED_JOB: quality
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          [[ "$GITHUB_REF" == refs/heads/dev ]] || fail "Run promote from dev: gh workflow run promote.yml --ref dev -f pull_request=$PULL_REQUEST."
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST")"
+          jq -e --arg repo "$GITHUB_REPOSITORY" \
+            '.state == "open" and .base.ref == "main" and .head.ref == "dev" and .head.repo.full_name == $repo' \
+            <<<"$pr" >/dev/null || fail "Pull request #$PULL_REQUEST is not an open promotion from dev into main."
+          head="$(jq -r .head.sha <<<"$pr")"
+          dev="$(gh api "repos/$GITHUB_REPOSITORY/branches/dev" --jq .commit.sha)"
+          main="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq .commit.sha)"
+          [[ "$head" == "$dev" ]] || fail "dev moved to $dev after pull request head $head. Wait for checks on the new head."
+          status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$main...$head" --jq .status)"
+          [[ "$status" == ahead ]] || fail "main $main cannot fast-forward to $head (comparison: $status)."
+          # The newest run of this promotion on the exact head whose required job ran decides.
+          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=pull_request&head_sha=$head&per_page=100" |
+            jq -r --argjson pr "$PULL_REQUEST" \
+              '[.workflow_runs[] | select(any(.pull_requests[]; .number == $pr and .base.ref == "main"))] | sort_by(-.run_number) | .[].id')"
+          verdict=none
+          url=none
+          for id in $runs; do
+            job="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs?per_page=100" |
+              jq -c --arg name "$REQUIRED_JOB" '[.jobs[] | select(.name == $name and .conclusion != "skipped")] | last // empty')"
+            [[ -n "$job" ]] || continue
+            verdict="$(jq -r '.status + "/" + (.conclusion // "pending")' <<<"$job")"
+            url="$(jq -r .html_url <<<"$job")"
+            break
+          done
+          [[ "$verdict" == completed/success ]] ||
+            fail "$REQUIRED_JOB has not passed for pull request #$PULL_REQUEST on exact head $head (newest result: $verdict, $url)."
+          {
+            echo "head=$head"
+            echo "main=$main"
+            echo "run=$url"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check out exact promotion history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.promotion.outputs.head }}
+
+      - name: Fast-forward main to the validated commit
+        env:
+          HEAD_SHA: ${{ steps.promotion.outputs.head }}
+        # A plain push refuses anything but a fast-forward.
+        run: git push origin "$HEAD_SHA:refs/heads/main"
+
+      - name: Confirm promotion
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.promotion.outputs.head }}
+          PREVIOUS_MAIN: ${{ steps.promotion.outputs.main }}
+          PULL_REQUEST: ${{ inputs.pull_request }}
+          VALIDATION_RUN: ${{ steps.promotion.outputs.run }}
+        run: |
+          set -euo pipefail
+          main="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq .commit.sha)"
+          if [[ "$main" != "$HEAD_SHA" ]]; then
+            echo "::error::main is $main, expected $HEAD_SHA."
+            exit 1
+          fi
+          merged=false
+          for _ in 1 2 3 4 5 6; do
+            merged="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST" --jq .merged)"
+            [[ "$merged" != true ]] || break
+            sleep 5
+          done
+          [[ "$merged" == true ]] || echo "::warning::GitHub has not yet marked pull request #$PULL_REQUEST as merged."
+          {
+            echo "## Promotion"
+            echo
+            echo "main moved from \`$PREVIOUS_MAIN\` to \`$HEAD_SHA\`, the exact head validated by $VALIDATION_RUN."
+            echo "Pull request #$PULL_REQUEST merged: $merged."
+          } >> "$GITHUB_STEP_SUMMARY"

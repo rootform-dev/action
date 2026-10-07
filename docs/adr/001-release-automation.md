@@ -1,6 +1,6 @@
 # ADR-001: Release automation for the action repository
 
-- Status: Accepted
+- Status: Accepted; superseded by ADR-007 for the release trigger, the breaking-change rule and major tags
 - Date: 2026-08-27
 - Owners: @soulbah
 - Related spec: repository-only foundation work
