@@ -34,15 +34,24 @@ change.
 
 ## How a release happens
 
-Merging into `dev` publishes nothing. Merging `dev` into `main` runs
-`.github/workflows/release.yml`: semantic-release reads the Conventional Commit
-history, computes the next version, then creates the Git tag and the GitHub
-Release together. A merge carrying only `chore`, `ci`, `docs`, `style`, `test`,
-or `refactor` commits produces no release, which is intended.
+Merging into `dev` publishes nothing, and neither does promotion. A promotion
+is a pull request from `dev` into `main`; once `quality` passes on its exact
+head, a maintainer runs `gh workflow run promote.yml --ref dev -f pull_request=<number>`,
+which fast-forwards `main` to that commit.
 
-While the action is `0.x`, a breaking change raises the minor version. It never
-publishes `1.0.0`; that promotion is an owner decision documented in
-`docs/adr/001-release-automation.md`.
+A release is a separate maintainer dispatch on `main`:
+
+1. `gh workflow run published-release-integration.yml --ref main -f version=<stable Rootform version>`
+   proves the promoted commit installs a published Rootform release anonymously.
+2. `gh workflow run release.yml --ref main` checks that proof and `quality` on
+   the same commit, then semantic-release computes the version from the
+   Conventional Commit history and creates the tag and the GitHub Release
+   together. `fix` is a patch, `feat` a minor and a breaking change a new
+   major version. A promotion carrying only `chore`, `ci`, `docs`, `style`,
+   `test`, or `refactor` commits releases nothing.
+3. The same run points the major tag (`v1` for `v1.x.y`) at the new release.
+   It only moves forward; rerunning resumes an interrupted release. See
+   `docs/adr/007-promoted-releases-and-major-tags.md`.
 
 Never create, move, or delete a tag or release by hand. Published references are
 what other people's workflows execute; correct a mistake with a new release.

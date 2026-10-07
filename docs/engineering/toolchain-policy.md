@@ -66,7 +66,8 @@ verified this way does not enter the gate.
 - Never run two dependency bots against the same ecosystem.
 - Security updates receive priority but still pass all gates. No blind auto-merge.
 - Review stable releases at least weekly during active development and before each release cut.
-- Releases are produced only by `.github/workflows/release.yml` on `main`.
-  Automation never moves a published tag, never publishes to a registry, and
-  never pushes a commit into a protected branch. See
-  `docs/adr/001-release-automation.md`.
+- Releases are produced only by `.github/workflows/release.yml`, dispatched on
+  `main`. Automation never moves a version tag, moves a major tag only forward
+  to a qualified release, never publishes to a registry, and never creates a
+  commit on a protected branch. See
+  `docs/adr/007-promoted-releases-and-major-tags.md`.

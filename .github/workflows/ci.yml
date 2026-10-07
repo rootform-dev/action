@@ -5,10 +5,6 @@ on:
     branches:
       - dev
       - main
-  push:
-    branches:
-      - dev
-      - main
 
 permissions:
   contents: read
@@ -29,6 +25,30 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Require promotion to fast-forward main from dev
+        if: github.base_ref == 'main'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PROMOTION_SOURCE: ${{ github.event.pull_request.head.repo.full_name }}:${{ github.head_ref }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [[ "$PROMOTION_SOURCE" != "$GITHUB_REPOSITORY:dev" ]]; then
+            echo "::error::main receives only promotions from $GITHUB_REPOSITORY:dev. Target dev instead."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"; then
+            echo "::error::main is not an ancestor of dev. Promotion must be a fast-forward."
+            exit 1
+          fi
+          {
+            echo "## Promotion"
+            echo
+            echo "Fast-forwards main from \`$BASE_SHA\` to the exact dev commit \`$HEAD_SHA\` ($(git rev-list --count "$BASE_SHA..$HEAD_SHA") commits)."
+            echo "Once quality passes, run the promote workflow for pull request #$PULL_REQUEST. Promotion publishes no release."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install exact Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -74,7 +94,8 @@ jobs:
         run: bun scripts/check-pr-metadata.ts
 
       - name: Validate pull request commits
-        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+        # Commits are gated where they enter dev; a promotion carries those same commits.
+        if: github.base_ref == 'dev' && github.actor != 'dependabot[bot]'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -82,6 +103,7 @@ jobs:
 
       - name: Run full quality gate
         env:
-          ROOTFORM_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
-          ROOTFORM_HEAD_BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || '' }}
+          # The product spec gate applies where changes enter dev; promotions carry gated changes.
+          ROOTFORM_BASE_SHA: ${{ github.base_ref == 'dev' && github.event.pull_request.base.sha || '' }}
+          ROOTFORM_HEAD_BRANCH: ${{ github.base_ref == 'dev' && github.head_ref || '' }}
         run: bun run verify
