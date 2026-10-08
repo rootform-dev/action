@@ -25,4 +25,4 @@ Init runs Rootform preparation only. It never runs Terraform or OpenTofu. Its
 only output is `version`, the exact verified CLI version. The job-local
 `ROOTFORM_HOME` is shared with later business actions.
 
-See the complete [init input and output reference](https://docs.rootform.dev/integrations/github-actions/init/) and the [GitHub Actions overview](https://docs.rootform.dev/integrations/github-actions/).
+See the complete [init input and output reference](https://docs.rootform.dev/integrations/github-actions/init/) or return to the [Action quickstart](../README.md).

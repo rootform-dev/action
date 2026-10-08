@@ -28,4 +28,4 @@ failure; GitHub's `continue-on-error` controls later workflow steps. Artifacts
 and Summary are enabled by default. Successful upload also exposes
 `artifact-id` and `artifact-url`.
 
-See the complete [check input and output reference](https://docs.rootform.dev/integrations/github-actions/check/) and the [GitHub Actions overview](https://docs.rootform.dev/integrations/github-actions/).
+See the complete [check input and output reference](https://docs.rootform.dev/integrations/github-actions/check/) or return to the [Action quickstart](../README.md).

@@ -24,4 +24,4 @@ upload also exposes `artifact-id` and `artifact-url`; the default artifact
 contains only the Form and derived reports. Summary and upload are enabled by
 default. Set `upload-artifact: false` when the evidence should stay in the job.
 
-See the complete [analyze input and output reference](https://docs.rootform.dev/integrations/github-actions/analyze/) and the [GitHub Actions overview](https://docs.rootform.dev/integrations/github-actions/).
+See the complete [analyze input and output reference](https://docs.rootform.dev/integrations/github-actions/analyze/) or return to the [Action quickstart](../README.md).

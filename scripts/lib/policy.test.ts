@@ -48,6 +48,12 @@ describe("product path gate", () => {
 
   test.each([
     "AGENTS.md",
+    "README.md",
+    "setup/README.md",
+    "init/README.md",
+    "analyze/README.md",
+    "compare/README.md",
+    "check/README.md",
     ".claude/settings.json",
     "scripts/verify.ts",
     "docs/engineering/quality-gates.md",
