@@ -47,3 +47,36 @@ jobs:
           test "$RESOLVED_VERSION" = "$expected_version"
           [[ "$INSTALLED_SHA256" =~ ^[0-9a-f]{64}$ ]]
           test "$(rootform version)" = "rootform $expected_version"
+
+      - name: Check out the published fixture revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rootform-dev/rootform
+          ref: v${{ steps.rootform.outputs.version }}
+          path: fixtures
+          persist-credentials: false
+
+      - name: Install exact Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+
+      - name: Install locked verification dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Exercise published CLI business paths
+        env:
+          ROOTFORM_TEST_FIXTURES: ${{ github.workspace }}/fixtures
+          ROOTFORM_TEST_VERSION: ${{ steps.rootform.outputs.version }}
+          ROOTFORM_TEST_TOKEN: ""
+          ROOTFORM_TEST_EVIDENCE: ${{ runner.temp }}/published-cli-evidence.json
+        run: bun run test:integration
+
+      - name: Preserve business integration evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: published-cli-${{ steps.rootform.outputs.version }}-${{ github.sha }}
+          path: ${{ runner.temp }}/published-cli-evidence.json
+          if-no-files-found: warn
+          retention-days: 90
