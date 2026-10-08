@@ -12,27 +12,24 @@ if (!/^[0-9a-f]{40}$/u.test(base) || !/^[0-9a-f]{40}$/u.test(head)) {
 }
 
 const root = repositoryRoot();
-const result = git(["log", "-z", "--format=%s", `${base}..${head}`], root);
+const result = git(["log", "-z", "--format=%H%n%B", `${base}..${head}`], root);
 if (result.exitCode !== 0) {
-  console.error(result.stderr.trim());
+  console.error("Cannot inspect contribution commit messages");
   process.exit(result.exitCode);
 }
-
 const errors: string[] = [];
-const messages = git(["log", "-z", "--format=%B", `${base}..${head}`], root);
-if (messages.exitCode !== 0) {
-  console.error("Cannot inspect contribution commit messages");
-  process.exit(1);
-}
-try {
-  for (const message of nullSeparated(messages.stdout)) assertPublicMessage(message);
-} catch {
-  console.error("Publication refused: unsafe contribution commit message");
-  process.exit(1);
-}
-for (const subject of nullSeparated(result.stdout)) {
-  const validation = validateCommitSubject(subject);
-  if (!validation.valid) errors.push(validation.reason);
+for (const entry of nullSeparated(result.stdout)) {
+  const separator = entry.indexOf("\n");
+  const commit = entry.slice(0, separator);
+  const message = entry.slice(separator + 1);
+  try {
+    assertPublicMessage(message);
+  } catch {
+    errors.push(`${commit.slice(0, 12)}: unsafe contribution commit message`);
+    continue;
+  }
+  const validation = validateCommitSubject(message);
+  if (!validation.valid) errors.push(`${commit.slice(0, 12)}: ${validation.reason}`);
 }
 if (errors.length > 0) {
   console.error(errors.map((error) => `- ${error}`).join("\n"));

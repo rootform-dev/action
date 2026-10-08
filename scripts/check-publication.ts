@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { assertPublicMessage, publicationIssues } from "../src/publication-safety.ts";
 
 export function trackedPublicationIssues(
@@ -19,34 +19,64 @@ export function trackedPublicationIssues(
       throw new Error("Publication refused: cannot read tracked Git content");
     }
   };
-  const names = git(
-    revision && revision !== ":"
-      ? ["ls-tree", "-r", "--name-only", "-z", revision]
-      : ["ls-files", "-z"],
+  const records = git(
+    revision && revision !== ":" ? ["ls-tree", "-r", "-z", revision] : ["ls-files", "-s", "-z"],
   )
     .toString()
     .split("\0")
     .filter(Boolean);
-  return names.flatMap((path) => {
+  const entries = new Map(
+    records.map((entry) => {
+      const separator = entry.indexOf("\t");
+      return [entry.slice(separator + 1), entry.slice(0, separator).split(" ")[0]] as const;
+    }),
+  );
+  return [...entries].flatMap(([path, mode]) => {
     const full = join(directory, path);
     let body: Buffer;
-    if (revision) body = git(["show", `${revision === ":" ? "" : revision}:${path}`]);
-    else {
+    if (revision) {
+      body = git(["show", `${revision === ":" ? "" : revision}:${path}`]);
+      if (mode === "120000") {
+        try {
+          const target = realpathSync(resolve(directory, dirname(path), body.toString("utf8")));
+          if (
+            path.startsWith(".claude/skills/") &&
+            target.startsWith(`${resolve(directory, ".agents/skills")}/`)
+          )
+            return [];
+        } catch {
+          /* Dangling aliases are refused. */
+        }
+        return [{ path, rule: "symlink", line: 1 }];
+      }
+      if (mode !== "100644" && mode !== "100755")
+        return [{ path, rule: "irregular-entry", line: 1 }];
+    } else {
+      let stat: ReturnType<typeof lstatSync>;
       try {
-        const stat = lstatSync(full);
-        if (stat.isSymbolicLink()) {
+        stat = lstatSync(full);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+        throw new Error("Publication refused: cannot inspect tracked entry");
+      }
+      if (stat.isSymbolicLink()) {
+        try {
           const target = realpathSync(full);
           if (
             path.startsWith(".claude/skills/") &&
             target.startsWith(`${resolve(directory, ".agents/skills")}/`)
           )
             return [];
-          return [{ path, rule: "symlink", line: 1 }];
+        } catch {
+          /* Dangling aliases are refused. */
         }
+        return [{ path, rule: "symlink", line: 1 }];
+      }
+      if (!stat.isFile()) return [{ path, rule: "irregular-entry", line: 1 }];
+      try {
         body = readFileSync(full);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-        throw error;
+      } catch {
+        throw new Error("Publication refused: cannot read tracked file");
       }
     }
     // Binary metadata is included; a tracked path is never skipped because it is ignored.
