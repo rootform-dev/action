@@ -52,6 +52,9 @@ under default rules is `v1.0.0`, which matches the public `@v1` contract.
   creates its own tag; `v0` is never maintained. Version tags never move.
 - A rerun resumes: if semantic-release pushed a tag without its release, the
   run publishes the release for that tag, then moves the major tag.
+- The repository enforces immutable releases, so a published `vX.Y.Z` tag
+  and its release can no longer change. The run moves the major tag only
+  after GitHub reports the new release immutable.
 - `publish-v1.yml` is removed. The existing `v1` advances to `v1.0.0` through
   the first release run.
 - Running `release.yml` remains an owner decision.
