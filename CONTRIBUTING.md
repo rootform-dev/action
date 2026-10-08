@@ -50,8 +50,9 @@ A release is a separate maintainer dispatch on `main`:
    major version. A promotion carrying only `chore`, `ci`, `docs`, `style`,
    `test`, or `refactor` commits releases nothing.
 3. The same run points the major tag (`v1` for `v1.x.y`) at the new release.
-   It only moves forward; rerunning resumes an interrupted release. See
-   `docs/adr/007-promoted-releases-and-major-tags.md`.
+   It only moves forward, and only once GitHub reports the release immutable
+   (the repository enforces immutable releases). Rerunning resumes an
+   interrupted release. See `docs/adr/007-promoted-releases-and-major-tags.md`.
 
 Never create, move, or delete a tag or release by hand. Published references are
 what other people's workflows execute; correct a mistake with a new release.

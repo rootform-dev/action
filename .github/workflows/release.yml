@@ -86,8 +86,16 @@ jobs:
           fi
           jq -e '.draft == false' <<<"$release" >/dev/null || fail "$tag is still a draft."
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)" == "$GITHUB_SHA" ]] || fail "$tag does not name $GITHUB_SHA."
+          # The repository enforces immutable releases. GitHub can report the lock a few seconds after publication.
+          for attempt in 1 2 3 4 5 6; do
+            jq -e '.immutable == true' <<<"$release" >/dev/null && break
+            [[ "$attempt" -lt 6 ]] ||
+              fail "$tag is published but not immutable, so the major tag was not moved. Enable release immutability, delete this release (keep its tag) and rerun: the run republishes it immutable."
+            sleep $((attempt * 5))
+            release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag")"
+          done
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "Published $(jq -r .html_url <<<"$release") at \`$GITHUB_SHA\` (immutable: $(jq -r '.immutable // false' <<<"$release"))." >> "$GITHUB_STEP_SUMMARY"
+          echo "Published immutable $(jq -r .html_url <<<"$release") at \`$GITHUB_SHA\`." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Point the major tag at this release
         if: steps.release.outputs.tag != ''
