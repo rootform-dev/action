@@ -3,7 +3,7 @@
 ## T001 — CLI and path boundary
 
 - Status: Completed
-- Owner: primary agent
+- Owner: maintainers
 - Scope: `src/diff.ts`, `src/run.ts`, tests
 - Depends on: None
 - Requirements: REQ-001, REQ-002, REQ-007, REQ-008
@@ -16,7 +16,7 @@
 ## T002 — GitHub-native report
 
 - Status: Completed
-- Owner: primary agent
+- Owner: maintainers
 - Scope: `src/report.ts`, `src/pull-request.ts`, tests
 - Depends on: T001
 - Requirements: REQ-003, REQ-004, REQ-005
@@ -29,7 +29,7 @@
 ## T003 — Action orchestration and bundle
 
 - Status: Completed
-- Owner: primary agent
+- Owner: maintainers
 - Scope: `src/main.ts`, `action.yml`, `README.md`, generated `dist/`
 - Depends on: T001, T002
 - Requirements: REQ-006, REQ-007, REQ-008, REQ-010
@@ -42,7 +42,7 @@
 ## T004 — Real pull-request proof
 
 - Status: Completed
-- Owner: primary agent
+- Owner: maintainers
 - Scope: synthetic fixture, private GitHub PR, evidence record
 - Depends on: T003
 - Requirements: REQ-009
@@ -56,7 +56,7 @@
 ## T005 — Complete verification
 
 - Status: Completed
-- Owner: primary agent
+- Owner: maintainers
 - Scope: final diff and repository gates
 - Depends on: T004
 - Requirements: REQ-011

@@ -63,28 +63,13 @@ Before changing anything:
 
 Full normative wording lives in `docs/constitution.md`.
 
-## AI collaboration
+## Public contribution boundary
 
-- Primary agent owns plan, cross-cutting decisions, integration, final review,
-  and completion claim.
-- Prefer doing the work in the primary agent when it already holds the
-  necessary context.
-- Delegate only self-contained tasks with non-overlapping scopes; use subagents
-  primarily for bounded investigation, isolated implementation, or independent
-  verification.
-- Never ask multiple subagents to independently read the same broad set of
-  files. Provide distilled context in the task instead.
-- Do not delegate simple edits, mechanical refactors, or work touching tightly
-  coupled files.
-- On any 429 or rate-limit failure, do not spawn replacement agents; continue
-  sequentially in the primary agent.
-- Assign one writer per file. Parallel writers must own disjoint paths.
-- Every subtask returns evidence: paths and lines, commands run, observed
-  output, limitations, and changed files.
-- Primary agent rereads the final diff and reruns gates. Subagent claims are
-  not proof.
-- Never expose private prompts, transcripts, routing configuration, memory, or
-  credentials in commits or logs.
+Keep private notes, prompts, research and session reports outside this checkout.
+Public files, commits, pull requests and reports describe product behavior,
+contributor commands, validation and required technical provenance. Validate
+messages before sending them; diagnostics never reproduce sensitive values.
+Configure `git config core.hooksPath .githooks` before contributing.
 
 ## Toolchain and dependencies
 

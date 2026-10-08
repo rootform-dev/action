@@ -1,55 +1,40 @@
 import { describe, expect, test } from "bun:test";
 import { validatePullRequestMetadata } from "./pr-metadata.ts";
 
-const validBody = `## Spec and outcome
+const validBody = `## Change
 
-- Spec or repository-only rationale: repository foundation
-- Accepted outcome: shared checks run locally and in CI
-- Explicit non-goals: no product code
+Repository tooling validates contributions before publication.
 
-## Done when and evidence
+## Validation
 
-- Done when command or protocol: bun run verify exits 0
-- Evidence path or exact output: CI quality job
-
-## Risk and privacy
-
-- Security/privacy impact: private PRD stays ignored
-- Offline and determinism impact: no product runtime
-- Dependency or toolchain change: exact foundation tooling only
-- Rollback path: revert this pull request
-
-## Review checklist
-
-- [x] one
-- [x] two
-- [x] three
-- [x] four
+bun run verify passed.
 `;
 
 describe("pull request metadata", () => {
-  test("accepts completed template", () => {
+  test("accepts concise change and validation", () => {
     expect(
-      validatePullRequestMetadata("chore: establish repository foundation", validBody).errors,
+      validatePullRequestMetadata("fix: validate public contributions", validBody).errors,
     ).toEqual([]);
   });
-
-  test("rejects empty fields and checklist", () => {
-    const body = validBody.replace("repository foundation", "").replaceAll("[x]", "[ ]");
-    const errors = validatePullRequestMetadata(
-      "chore: establish repository foundation",
-      body,
-    ).errors.join("\n");
-    expect(errors).toContain("Spec or repository-only rationale");
-    expect(errors).toContain("review checklist");
-  });
-
-  test("rejects unresolved template marker", () => {
+  test("rejects absent validation and template placeholders", () => {
     expect(
       validatePullRequestMetadata(
-        "chore: establish repository foundation",
-        `${validBody}\n<!-- required: x -->`,
+        "fix: validate public contributions",
+        "## Change\n\nImproved checks.",
       ).errors,
+    ).toContain("missing pull request section: Validation");
+    expect(
+      validatePullRequestMetadata("fix: validate public contributions", `${validBody}\nTODO`)
+        .errors,
     ).not.toEqual([]);
+  });
+  test("refuses unsafe text without reproducing it", () => {
+    const value = "/" + "Users/fixture/private";
+    const errors = validatePullRequestMetadata(
+      "fix: validate public contributions",
+      `${validBody}\n${value}`,
+    ).errors;
+    expect(errors).toEqual(["unsafe public contribution text"]);
+    expect(errors.join(" ")).not.toContain(value);
   });
 });

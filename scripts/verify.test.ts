@@ -61,7 +61,9 @@ describe("bundle gate commands", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stderr.toString()).toBe("");
       expect(result.stdout.toString()).toContain("Full verification passed.");
-      expect(await Bun.file(log).text()).toBe(["run check", "run build", ""].join("\n"));
+      expect(await Bun.file(log).text()).toBe(
+        ["scripts/check-publication.ts", "run check", "run build", ""].join("\n"),
+      );
     } finally {
       rmSync(scratch, { force: true, recursive: true });
     }
