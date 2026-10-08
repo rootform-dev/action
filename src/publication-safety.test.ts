@@ -18,3 +18,19 @@ test("consumer reports and maintainer messages both refuse synthetic credentials
     expect(() => assertPublicMessage(value)).toThrow("credential");
   }
 });
+
+test("encoded credentials are refused before consumer reporting without changing path policy", () => {
+  const secret = "Bearer " + "SYNTHETIC".repeat(8);
+  for (const value of [
+    encodeURIComponent(encodeURIComponent(secret)),
+    { encoding: "base64", content: btoa(secret) },
+  ]) {
+    expect(() => assertReportMessage(value, "example/project")).toThrow("credential");
+    expect(() => assertPublicMessage(value)).toThrow("credential");
+  }
+  const path = "/" + "Users/fictional/output";
+  expect(() => assertReportMessage(encodeURIComponent(path), "example/project")).not.toThrow();
+  expect(() => assertReportMessage(encodeURIComponent(path), "rootform-dev/action")).toThrow(
+    "personal-path",
+  );
+});
