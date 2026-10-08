@@ -65,3 +65,24 @@ test("named credentials are checked recursively while exact synthetic literals r
     }),
   ).toThrow("personal-path");
 });
+
+test("nested JSON and rendered metadata cannot hide private text", () => {
+  const credential = "SYNTHETIC".repeat(8);
+  const path = "/" + "Users/fictional/session";
+  for (const value of [
+    { body: JSON.stringify({ API_KEY: credential }) },
+    '"api_key": "' + credential + '"',
+    { body: JSON.stringify({ CLOUDFLARE_API_KEY: credential }) },
+    { encoding: "base64", content: Buffer.from(path, "utf16le").toString("base64") },
+    ["&#47", ";Users&#47", ";fictional&#47", ";session"].join(""),
+    "notes/" + "fictional-session/report.json",
+  ])
+    expect(() => assertPublicMessage(value)).toThrow("Public message refused:");
+  for (const value of [
+    "ROOTFORM_DATADOG_CLOUDFLARE_KEY_SENTINEL",
+    "ROOTFORM_DATADOG_FASTLY_KEY_SENTINEL",
+    "ROOTFORM_HCP_DATADOG_API_SENTINEL",
+    "ROOTFORM_ATLAS_OBSERVABILITY_SECRET",
+  ])
+    expect(() => assertPublicMessage('api_key = "' + value + '"')).not.toThrow();
+});
