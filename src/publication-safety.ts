@@ -60,7 +60,7 @@ export function publicationIssues(text: string): PublicationIssue[] {
           )
             throw new Error("Invalid encoding");
           scan(
-            new TextDecoder("utf-8", { fatal: true }).decode(
+            new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
               Uint8Array.from(atob(payload.content), (character) => character.charCodeAt(0)),
             ),
           );
@@ -88,6 +88,7 @@ export function publicationIssues(text: string): PublicationIssue[] {
 
 /** Validate all outbound strings before a bot makes its first write. */
 export function assertPublicMessage(value: unknown): void {
+  if (value === undefined) return;
   let text: string;
   try {
     const serialized = typeof value === "string" ? value : JSON.stringify(value);
