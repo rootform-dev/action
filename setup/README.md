@@ -24,4 +24,4 @@ installed executable's digest). They are values, not file paths. Public release
 installation needs no credential; the optional `github-token` is for GitHub
 API rate limits and is not sent to Rootform.
 
-See the complete [setup input and output reference](https://docs.rootform.dev/integrations/github-actions/setup/) and the [GitHub Actions overview](https://docs.rootform.dev/integrations/github-actions/).
+See the complete [setup input and output reference](https://docs.rootform.dev/integrations/github-actions/setup/) or return to the [Action quickstart](../README.md).

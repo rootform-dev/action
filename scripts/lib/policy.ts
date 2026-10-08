@@ -237,6 +237,7 @@ export function decidePreToolUse(input: HookInput, root: string): PolicyDecision
 
 export function isProductPath(path: string): boolean {
   const normalized = path.replace(/^\.\//, "");
+  if (/^(?:setup|init|analyze|compare|check)\/README\.md$/u.test(normalized)) return false;
   if (["action.yml", "action.yaml"].includes(normalized)) return true;
   return ["dist/", "setup/", "init/", "analyze/", "compare/", "check/", "src/", "test/"].some(
     (prefix) => normalized.startsWith(prefix),

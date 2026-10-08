@@ -25,4 +25,4 @@ bodies. A Comparison Form can be reopened by analyze or check, but cannot be
 used as a compare operand. Successful artifact upload exposes `artifact-id`
 and `artifact-url`; upload and Summary are enabled by default.
 
-See the complete [compare input and output reference](https://docs.rootform.dev/integrations/github-actions/compare/) and the [GitHub Actions overview](https://docs.rootform.dev/integrations/github-actions/).
+See the complete [compare input and output reference](https://docs.rootform.dev/integrations/github-actions/compare/) or return to the [Action quickstart](../README.md).
