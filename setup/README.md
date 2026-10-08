@@ -9,7 +9,7 @@ steps:
   - uses: rootform-dev/action/setup@v1
     id: rootform
     with:
-      version: 0.1.0
+      version: <rootform-version>
   - name: Confirm the installed CLI
     run: rootform version
 ```
@@ -25,3 +25,5 @@ installation needs no credential; the optional `github-token` is for GitHub
 API rate limits and is not sent to Rootform.
 
 See the complete [setup input and output reference](https://docs.rootform.dev/integrations/github-actions/setup/) or return to the [Action quickstart](../README.md).
+
+Replace `<rootform-version>` with an exact published CLI version.

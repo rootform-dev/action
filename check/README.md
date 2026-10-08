@@ -8,7 +8,7 @@ steps:
   - uses: rootform-dev/action/check@v1
     id: policy-check
     with:
-      version: 0.1.0
+      version: <rootform-version>
       input: ${{ runner.temp }}/plan.json
       plan-file: ${{ runner.temp }}/plan.tfplan
       policy-pack: ./policies/team
@@ -29,3 +29,5 @@ and Summary are enabled by default. Successful upload also exposes
 `artifact-id` and `artifact-url`.
 
 See the complete [check input and output reference](https://docs.rootform.dev/integrations/github-actions/check/) or return to the [Action quickstart](../README.md).
+
+Replace `<rootform-version>` with an exact published CLI version.

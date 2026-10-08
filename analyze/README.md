@@ -8,7 +8,7 @@ steps:
   - uses: rootform-dev/action/analyze@v1
     id: analysis
     with:
-      version: 0.1.0
+      version: <rootform-version>
       input: ${{ runner.temp }}/plan.json
       plan-file: ${{ runner.temp }}/plan.tfplan
 ```
@@ -25,3 +25,5 @@ contains only the Form and derived reports. Summary and upload are enabled by
 default. Set `upload-artifact: false` when the evidence should stay in the job.
 
 See the complete [analyze input and output reference](https://docs.rootform.dev/integrations/github-actions/analyze/) or return to the [Action quickstart](../README.md).
+
+Replace `<rootform-version>` with an exact published CLI version.

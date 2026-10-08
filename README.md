@@ -16,10 +16,13 @@ Make `plan.json` and its matching saved plan `plan.tfplan` available first:
 - uses: rootform-dev/action@v1
   id: rootform
   with:
-    version: 0.1.0
+    version: <rootform-version>
     input: plan.json
     plan-file: plan.tfplan
 ```
+
+Replace `<rootform-version>` with an exact published CLI version. The Action
+major tag `v1` is independent of the CLI version.
 
 The root Action infers analysis or comparison. Set `check: true` to evaluate
 the project's locked Policy selections, or supply an explicit Policy selector

@@ -9,7 +9,7 @@ standalone init is optional.
 steps:
   - uses: rootform-dev/action/init@v1
     with:
-      version: 0.1.0
+      version: <rootform-version>
       project: infra
       locked: true
 ```
@@ -26,3 +26,5 @@ only output is `version`, the exact verified CLI version. The job-local
 `ROOTFORM_HOME` is shared with later business actions.
 
 See the complete [init input and output reference](https://docs.rootform.dev/integrations/github-actions/init/) or return to the [Action quickstart](../README.md).
+
+Replace `<rootform-version>` with an exact published CLI version.

@@ -10,6 +10,8 @@ import { type BusinessKind, type RunOptions, runBusiness } from "../src/run.ts";
 const fixtures = process.env.ROOTFORM_TEST_FIXTURES;
 if (!fixtures)
   throw new Error("ROOTFORM_TEST_FIXTURES must name the public Rootform fixture checkout");
+const version = process.env.ROOTFORM_TEST_VERSION;
+if (!version) throw new Error("ROOTFORM_TEST_VERSION must name an exact published CLI version");
 const workspace = resolve(fixtures);
 const temporary = mkdtempSync(join(tmpdir(), "rootform-action-integration-"));
 process.env.RUNNER_TOOL_CACHE ||= join(temporary, "tools");
@@ -18,7 +20,7 @@ mkdirSync(process.env.ROOTFORM_HOME);
 process.env.GITHUB_PATH ||= join(temporary, "github-path");
 writeFileSync(process.env.GITHUB_PATH, "");
 const installation = await installRootform({
-  version: process.env.ROOTFORM_TEST_VERSION || "0.1.0-pr.117.1",
+  version,
   token: process.env.ROOTFORM_TEST_TOKEN || "",
 });
 const baseProject = join(workspace, "examples/playground/shared-data-platform/base");

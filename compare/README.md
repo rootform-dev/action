@@ -8,7 +8,7 @@ steps:
   - uses: rootform-dev/action/compare@v1
     id: comparison
     with:
-      version: 0.1.0
+      version: <rootform-version>
       before: ${{ runner.temp }}/before/plan.json
       before-plan-file: ${{ runner.temp }}/before/plan.tfplan
       after: ${{ runner.temp }}/after/plan.json
@@ -26,3 +26,5 @@ used as a compare operand. Successful artifact upload exposes `artifact-id`
 and `artifact-url`; upload and Summary are enabled by default.
 
 See the complete [compare input and output reference](https://docs.rootform.dev/integrations/github-actions/compare/) or return to the [Action quickstart](../README.md).
+
+Replace `<rootform-version>` with an exact published CLI version.
