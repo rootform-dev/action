@@ -1,5 +1,13 @@
 export type PublicationIssue = { rule: string; line: number };
 
+// Exact non-credential literals used by public synthetic provider fixtures.
+const syntheticCredentialValues = new Set([
+  "ROOTFORM_DATADOG_CLOUDFLARE_KEY_SENTINEL",
+  "ROOTFORM_DATADOG_FASTLY_KEY_SENTINEL",
+  "ROOTFORM_HCP_DATADOG_API_SENTINEL",
+  "ROOTFORM_ATLAS_OBSERVABILITY_SECRET",
+]);
+
 const rules: Array<[string, RegExp]> = [
   [
     "personal-path",
@@ -59,16 +67,31 @@ export function publicationIssues(text: string): PublicationIssue[] {
             )
           )
             throw new Error("Invalid encoding");
-          scan(
-            new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
-              Uint8Array.from(atob(payload.content), (character) => character.charCodeAt(0)),
-            ),
+          const decoded = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
+            Uint8Array.from(atob(payload.content), (character) => character.charCodeAt(0)),
           );
+          scan(decoded);
+          let structured: unknown;
+          try {
+            structured = JSON.parse(decoded);
+          } catch {
+            structured = undefined;
+          }
+          if (structured !== undefined) inspect(structured, depth + 1);
         } catch {
           found.push({ rule: "uninspectable-content", line: 1 });
         }
       }
       for (const [key, item] of Object.entries(payload)) {
+        if (
+          /^(?:CLOUDFLARE_API_TOKEN|AWS_SECRET_ACCESS_KEY|OPENAI_API_KEY|API_TOKEN|API_KEY)$/iu.test(
+            key,
+          ) &&
+          typeof item === "string" &&
+          !syntheticCredentialValues.has(item) &&
+          /^[A-Za-z0-9_+./~=-]{24,}$/u.test(item)
+        )
+          found.push({ rule: "credential", line: 1 });
         scan(key);
         inspect(item, depth + 1);
       }

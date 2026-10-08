@@ -34,3 +34,34 @@ test("encoded credentials are refused before consumer reporting without changing
     "personal-path",
   );
 });
+
+test("named credentials are checked recursively while exact synthetic literals remain valid", () => {
+  const credential = "SYNTHETIC".repeat(8);
+  for (const payload of [
+    { API_TOKEN: credential },
+    { encoding: "base64", content: btoa(JSON.stringify({ api_key: credential })) },
+    {
+      encoding: "base64",
+      content: btoa(
+        JSON.stringify({ encoding: "base64", content: btoa("github_" + "pat_" + credential) }),
+      ),
+    },
+  ])
+    expect(() => assertPublicMessage(payload)).toThrow("credential");
+  for (const value of [
+    "ROOTFORM_DATADOG_CLOUDFLARE_KEY_SENTINEL",
+    "ROOTFORM_DATADOG_FASTLY_KEY_SENTINEL",
+    "ROOTFORM_HCP_DATADOG_API_SENTINEL",
+    "ROOTFORM_ATLAS_OBSERVABILITY_SECRET",
+  ]) {
+    expect(() => assertPublicMessage({ api_key: value })).not.toThrow();
+    expect(() => assertPublicMessage({ api_key: value + "_CHANGED" })).toThrow("credential");
+  }
+  const path = "/" + "Users/fictional/session";
+  expect(() =>
+    assertPublicMessage({
+      encoding: "base64",
+      content: btoa(JSON.stringify({ value: path }).replaceAll("/", "\\u002f")),
+    }),
+  ).toThrow("personal-path");
+});
