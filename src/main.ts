@@ -12,6 +12,7 @@ import {
 import { type Installation, installRootform } from "./install.ts";
 import { containedInput } from "./paths.ts";
 import { runPreparation } from "./preparation.ts";
+import { assertPublicMessage } from "./publication-safety.ts";
 import {
   type CommentResult,
   type GitHubContext,
@@ -326,6 +327,7 @@ export async function main(
       if (!context.pullRequest?.sameRepository || context.eventName !== "pull_request")
         commentState = "skipped (not an eligible same-repository pull_request)";
       else {
+        assertPublicMessage(report(60_000));
         const result = await dependencies.comment({
           token,
           identity: context.pullRequest,
@@ -342,7 +344,9 @@ export async function main(
   }
   if (summary) {
     try {
-      await actionCore.summary.addRaw(report()).write();
+      const publicReport = report();
+      assertPublicMessage(publicReport);
+      await actionCore.summary.addRaw(publicReport).write();
     } catch (error) {
       failures.push(error);
     }

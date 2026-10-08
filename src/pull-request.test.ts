@@ -13,6 +13,24 @@ const identity = {
   sameRepository: true,
 };
 const stamp = "<!-- rootform-run:20:10:100:1:2026-10-02T10:00:00Z -->";
+
+test("synthetic private report content is refused before any request", async () => {
+  let requests = 0;
+  await expect(
+    upsertPullRequestComment({
+      body: "/" + "Users/fictional/private-report",
+      identity,
+      token: "synthetic-test-token",
+      runId: "100",
+      runAttempt: "1",
+      fetcher: async () => {
+        requests++;
+        return Response.json({});
+      },
+    }),
+  ).rejects.toThrow("Public message refused: personal-path");
+  expect(requests).toBe(0);
+});
 function github(
   options: {
     comments?: unknown[];

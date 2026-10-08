@@ -3,4 +3,5 @@ set -eu
 
 ROOTFORM_REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOTFORM_REPO_ROOT"
+bun scripts/check-publication.ts --message-file "$1"
 exec bun scripts/check-commit-message.ts --file "$1"

@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-02
 - Owner: @soulbah
-- Owner approval: @soulbah — 2026-10-02 (complete public Action redesign and delegated research; architecture and final validation owned by lead)
+- Owner approval: @soulbah — 2026-10-02 (complete public Action redesign and reviewed protocol documentation; architecture and final validation owned by lead)
 - Related spec: SPEC-006
 - Supersedes: ADR-002 through ADR-005 for active runtime behavior
 
@@ -26,7 +26,7 @@ Vault transports remote credentials; golangci-lint combines install/lint/cache;
 Checkov exposes many scan/failure/platform settings. Their mutable version
 selectors, credentials and infrastructure execution do not fit Rootform.
 An inventory of documentation is not a claim that their entire implementations
-were audited. The retained design below is a lead decision, not delegated
+were audited. The retained design below is a maintainer decision, not delegated
 architecture.
 
 ## Decision

@@ -5,7 +5,7 @@
 ## T001 — Preparation command and envelope
 
 - Status: Completed
-- Owner: primary agent
+- Owner: maintainers
 - Scope: `src/preparation.ts`, `src/preparation.test.ts`
 - Depends on: None
 - Requirements: REQ-001, REQ-002, REQ-005, REQ-008
@@ -19,7 +19,7 @@
 ## T002 — Immutable dialect cache
 
 - Status: Completed
-- Owner: primary agent
+- Owner: maintainers
 - Scope: `src/cache.ts`, `src/cache.test.ts`
 - Depends on: T001
 - Requirements: REQ-006, REQ-007
@@ -33,7 +33,7 @@
 ## T003 — Orchestration, outputs, and report
 
 - Status: Completed
-- Owner: primary agent
+- Owner: maintainers
 - Scope: `src/main.ts`, `src/report.ts`, `action.yml`, `README.md`, generated `dist/`
 - Depends on: T001, T002
 - Requirements: REQ-003, REQ-004, REQ-009, REQ-010
@@ -48,7 +48,7 @@
 ## T004 — Complete repository proof
 
 - Status: Completed
-- Owner: primary agent
+- Owner: maintainers
 - Scope: repository gate
 - Depends on: T001, T002, T003
 - Requirements: REQ-011

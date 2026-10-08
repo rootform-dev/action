@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { assertPublicMessage } from "../src/publication-safety.ts";
 import { validateCommitSubject } from "./lib/commit-message.ts";
 import { git, nullSeparated, repositoryRoot } from "./lib/git.ts";
 
@@ -18,9 +19,20 @@ if (result.exitCode !== 0) {
 }
 
 const errors: string[] = [];
+const messages = git(["log", "-z", "--format=%B", `${base}..${head}`], root);
+if (messages.exitCode !== 0) {
+  console.error("Cannot inspect contribution commit messages");
+  process.exit(1);
+}
+try {
+  for (const message of nullSeparated(messages.stdout)) assertPublicMessage(message);
+} catch {
+  console.error("Publication refused: unsafe contribution commit message");
+  process.exit(1);
+}
 for (const subject of nullSeparated(result.stdout)) {
   const validation = validateCommitSubject(subject);
-  if (!validation.valid) errors.push(`${subject}: ${validation.reason}`);
+  if (!validation.valid) errors.push(validation.reason);
 }
 if (errors.length > 0) {
   console.error(errors.map((error) => `- ${error}`).join("\n"));

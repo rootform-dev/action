@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import type { FetchLike } from "./github.ts";
+import { assertPublicMessage } from "./publication-safety.ts";
 import { REPORT_MARKER } from "./report.ts";
 
 const API_VERSION = "2026-03-10";
@@ -188,6 +189,7 @@ export async function upsertPullRequestComment(options: {
   runId?: string;
   runAttempt?: string;
 }): Promise<CommentResult> {
+  assertPublicMessage(options.body);
   if (!options.token) throw new Error("github-token is required when comment is enabled");
   if (!options.identity.sameRepository) {
     throw new Error("pull-request comments are disabled for fork pull requests");

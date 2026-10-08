@@ -31,6 +31,7 @@ function runGate(gate: Gate): void {
   if (result.exitCode !== 0) process.exit(result.exitCode);
 }
 
+runGate({ command: ["bun", "scripts/check-publication.ts"], label: "public content boundary" });
 runGate({ command: ["bun", "run", "check"], label: "fast repository gate" });
 
 if (!full) {

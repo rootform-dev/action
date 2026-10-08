@@ -31,6 +31,14 @@ for (const update of updates) {
     base = mergeBase.stdout.trim();
   }
 
+  const publication = run(
+    ["bun", "scripts/check-publication.ts", "--range", base ? `${base}..${localSha}` : localSha],
+    root,
+  );
+  process.stdout.write(publication.stdout);
+  process.stderr.write(publication.stderr);
+  if (publication.exitCode !== 0) process.exit(publication.exitCode);
+
   const result = Bun.spawnSync(["bun", "scripts/verify.ts", "--full"], {
     cwd: root,
     env: { ...process.env, ROOTFORM_BASE_SHA: base, ROOTFORM_HEAD_BRANCH: branch },

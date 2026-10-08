@@ -55,6 +55,13 @@ jobs:
         with:
           bun-version: 1.4.0
 
+      - name: Validate public contribution text
+        env:
+          PUBLIC_TITLE: ${{ github.event.pull_request.title }}
+          PUBLIC_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bun scripts/check-publication.ts --metadata-env --range "$BASE_SHA..HEAD"
+
       - name: Install exact foundation dependencies
         run: bun install --frozen-lockfile
 
