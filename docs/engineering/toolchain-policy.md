@@ -13,7 +13,8 @@ current foundation pins Bun 1.4.0, TypeScript 7.0.2, Biome 2.5.14, Bun types
 1.4.0, Gitleaks 8.30.1, and actionlint 1.7.12. Release automation pins
 semantic-release 25.0.9 with `@semantic-release/commit-analyzer` 13.0.1,
 `@semantic-release/release-notes-generator` 14.1.1, `@semantic-release/github`
-12.0.10, and `conventional-changelog-conventionalcommits` 10.4.0. Any runtime
+12.0.10, and `conventional-changelog-conventionalcommits` 9.3.1, the newest
+preset major that the release notes generator's changelog writer 8 renders. Any runtime
 dependency an action entrypoint needs requires fresh compatibility validation in
 an accepted spec.
 
