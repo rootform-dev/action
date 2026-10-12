@@ -30,13 +30,13 @@
     "test:integration": "bun scripts/integration.ts"
   },
   "dependencies": {
-    "@actions/artifact": "6.2.1",
+    "@actions/artifact": "6.3.1",
     "@actions/cache": "6.3.0",
     "@actions/core": "3.0.1",
     "@actions/tool-cache": "4.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14",
+    "@biomejs/biome": "2.5.15",
     "@semantic-release/commit-analyzer": "13.0.1",
     "@semantic-release/github": "12.0.10",
     "@semantic-release/release-notes-generator": "14.1.1",
