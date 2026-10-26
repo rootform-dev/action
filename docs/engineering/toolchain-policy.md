@@ -9,7 +9,7 @@ Exclude prereleases, nightly builds, abandoned packages, and combinations whose 
 ## Active foundation toolchain
 
 `package.json`, `bun.lock`, workflow SHAs, and CI checks are source of truth. The
-current foundation pins Bun 1.4.0, TypeScript 7.0.2, Biome 2.5.14, Bun types
+current foundation pins Bun 1.4.0, TypeScript 7.0.2, Biome 2.6.2, Bun types
 1.4.0, Gitleaks 8.30.1, and actionlint 1.7.12. Release automation pins
 semantic-release 25.0.9 with `@semantic-release/commit-analyzer` 13.0.1,
 `@semantic-release/release-notes-generator` 14.1.1, `@semantic-release/github`
